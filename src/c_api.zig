@@ -548,7 +548,7 @@ export fn hamudi_surface_save(handle: u64, out: ?[*]u8, bytes: usize, required: 
     lock();
     defer mutex.unlock();
     const s = surface(handle) catch |e| return fail(e);
-    const data = lib.image_io.save(a, s.document) catch |e| return fail(e);
+    const data = lib.image_io.saveCompact(a, s.document) catch |e| return fail(e);
     defer a.free(data);
     copyBytes(data, out, bytes, required) catch |e| return fail(e);
     return 0;
@@ -558,7 +558,7 @@ export fn hamudi_surface_load(handle: u64, input: ?[*]const u8, bytes: usize) c_
     defer mutex.unlock();
     const s = surface(handle) catch |e| return fail(e);
     if (s.active != null) return fail(error.StrokeActive);
-    const data = slice(u8, input, bytes, 128 * 1024 * 1024) catch |e| return fail(e);
+    const data = slice(u8, input, bytes, lib.image_io.max_compact_project_bytes) catch |e| return fail(e);
     var doc = lib.image_io.load(a, data) catch |e| return fail(e);
     var next = lib.painting.Session.init(a, doc.width, doc.height) catch |e| {
         doc.deinit();
@@ -568,6 +568,11 @@ export fn hamudi_surface_load(handle: u64, input: ?[*]const u8, bytes: usize) c_
     next.document = doc;
     next.revision = s.revision +% 1;
     next.gesture_sequence = s.gesture_sequence;
+    next.managed_channels = s.managed_channels;
+    for (doc.defaults, 0..) |value, i| {
+        const ch: lib.painting.Channel = @enumFromInt(i);
+        if (!std.meta.eql(value, ch.defaults())) next.managed_channels |= @as(u32, 1) << @intCast(i);
+    }
     for (doc.layers.items) |layer| next.managed_channels |= layer.enabled;
     next.dirty_channels = next.managed_channels;
     s.deinit();

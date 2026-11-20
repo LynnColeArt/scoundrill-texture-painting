@@ -37,7 +37,7 @@ Zig, keeps authored skin/eye UVs, and expands the previously constant material
 color into an editable texture. Original fixture data and CLI parity inputs are
 unchanged. This resolves otherwise invisible painting on zero-area UVs.
 
-Project IO uses native versioned JSON and PNG8/PNG16. Full .tcraft and external
+Project IO uses native versioned JSON/compact binary tiles and PNG8/PNG16. Full .tcraft and external
 format parity have not been substituted by this format choice; their remaining
 scope stays explicit in the roadmap.
 
@@ -55,6 +55,6 @@ those identities. Studio UI remains with its parallel owner.
 CPU rendering uses the same shaders through a CPU Vulkan driver, rather than a
 second hand-port of the Rust CPU tracer. This reduces transport drift; the
 platform dependency and tiny llvmpipe acceptance are explicit. Native project
-JSON/PNG supplies working persistence, while .tcraft and broad import support
+projects/PNG supply working persistence, while .tcraft and broad import support
 remain separate extensions. [CAPABILITIES.md](CAPABILITIES.md) lists the shipped
 operations and the upstream features that are not implied by them.

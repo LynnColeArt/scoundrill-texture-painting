@@ -82,6 +82,8 @@ int hamudi_surface_stamp_world(HamudiHandle surface, HamudiHandle scene, uint32_
 int hamudi_sync_surface(HamudiHandle renderer, uint32_t material, HamudiHandle surface);
 int hamudi_surface_clear_dirty(HamudiHandle surface);
 int hamudi_surface_save(HamudiHandle surface, uint8_t *out, size_t bytes, size_t *required);
+/* Save emits HAMUDI02 compact projects (CRC, 1 GiB cap). Load also accepts the
+   legacy native JSON schema. Malformed/failed loads preserve the current state. */
 int hamudi_surface_load(HamudiHandle surface, const uint8_t *data, size_t bytes);
 int hamudi_surface_png(HamudiHandle surface, uint32_t channel, uint32_t bits, uint32_t color, uint8_t *out, size_t bytes, size_t *required);
 int hamudi_surface_set_default(HamudiHandle surface, uint32_t channel, const float value[3]);

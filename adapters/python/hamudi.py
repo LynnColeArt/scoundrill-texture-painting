@@ -182,7 +182,9 @@ class Surface(Resource):
         required=Z();self.library.call('surface_save',self.handle,None,0,C.byref(required))
         output=C.create_string_buffer(required.value);self.library.call('surface_save',self.handle,output,len(output),C.byref(required));return output.raw
     def load(self,data):
-        self.library.call('surface_load',self.handle,data,len(data));row=json.loads(data);self.width=row['width'];self.height=row['height'];self.layer=len(row['layers'])-1
+        self.library.call('surface_load',self.handle,data,len(data))
+        row=json.loads(data[16:16+struct.unpack_from('<I',data,8)[0]]) if data.startswith(b'HAMUDI02') else json.loads(data)
+        self.width=row['width'];self.height=row['height'];self.layer=len(row['layers'])-1
     def png(self,channel=0,bits=16,color=None):
         if color is None:color=channel in (0,7,10,15)
         required=Z();self.library.call('surface_png',self.handle,channel,bits,color,None,0,C.byref(required))
@@ -223,7 +225,8 @@ class Renderer(Resource):
 
 class PreparedViewport:
     """Scoundrill prepared-scene adapter, with persistent rendering and painting."""
-    def __init__(self,path,library_path=None,width=1280,height=720):
+    def __init__(self,path,library_path=None,width=1280,height=720,paint_resolution=256):
+        if type(paint_resolution) is not int or not 1<=paint_resolution<=4096:raise ValueError('PaintResolutionBudget')
         self.library=Library(library_path);self.scene=None;self.renderer=None;self.surfaces={};self.history=[];self.redo_history=[];self.active=None;self.revision=0
         path=Path(path).resolve()
         if path.stat().st_size>64*1024*1024:raise ValueError('Scene exceeds budget')
@@ -241,8 +244,9 @@ class PreparedViewport:
             minimum=(U*256)();self.library.call('scene_unwrap_missing',self.scene.handle,minimum)
             self.generated_uv_materials=[i for i,value in enumerate(minimum) if value]
             for i,mat in enumerate(self.materials):
-                if minimum[i]:
-                    size=max(minimum[i],256);base=mat['rgba'][:4]
+                if minimum[i] or mat['width']*mat['height']==1:
+                    size=max(minimum[i],paint_resolution);base=mat['rgba'][:4]
+                    if size>4096:raise ValueError('Generated UV charts exceed the prepared viewport budget')
                     mat.update(width=size,height=size,rgba=array.array('H',base)*(size*size))
             self.renderer=Renderer(self.library,self.scene,self.materials,self.data.get('environment',[.5,.5,.5]),width,height,self.data.get('environment_preset'))
         except BaseException:

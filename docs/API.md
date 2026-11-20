@@ -117,9 +117,14 @@ Native PNG export supports RGBA8/RGBA16 with a channel color policy:
 albedo/emission/specular/sheen color export as sRGB;
 roughness, normals, height and other data maps stay linear by default. Explicit
 color overrides remain available. Project persistence uses a versioned
-native JSON schema with a 128 MiB serialized budget. Save preflights that budget
-before allocating JSON output, and rejects nonfinite/invalid documents; it does
-not emit a project that its own loader will reject for size. This is not .tcraft
+native schema: readable JSON v1 has a 128 MiB serialized budget; compact v2
+uses bounded JSON metadata, little-endian binary tiles and a CRC, with a 1 GiB
+budget. C/Python save compact projects by default; the loader accepts both.
+Save preflights the applicable budget and rejects nonfinite/invalid documents.
+A dense 4096×4096 albedo/opacity project roundtrips exactly in about 192 MiB.
+`python3 tools/verify_projects.py --output NEW_JSON` reproduces that check and
+tests material-default restoration and local detailing of constant materials.
+This is not .tcraft
 compatibility. Map generation includes
 CPU AO, world/tangent normals, position, IDs, height, curvature and thickness,
 plus high-poly normal/height transfer. Map algorithm parity with every upstream

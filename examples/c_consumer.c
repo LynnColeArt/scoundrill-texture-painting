@@ -40,6 +40,15 @@ int main(void) {
     assert(hamudi_surface_undo(h)==0);
     assert(hamudi_surface_read(h,1,image,64*64*4)==0);
     assert(image[0]==32768);
+    size_t project_size=0;
+    assert(hamudi_surface_save(h,NULL,0,&project_size)==0 && project_size>16);
+    uint8_t *project=malloc(project_size);assert(project);
+    assert(hamudi_surface_save(h,project,project_size,&project_size)==0);
+    assert(project[0]=='H' && project[7]=='2');
+    assert(hamudi_surface_load(h,project,project_size)==0);
+    project[project_size-1]^=1;
+    assert(hamudi_surface_load(h,project,project_size)<0);
+    free(project);
     assert(hamudi_cancel_set(&cancel,1)==0);
     assert(hamudi_bake(scene,0,64,64,3,&bake,image,64*64*4)<0);
     assert(image[0]==32768); /* Failed/cancelled work does not alter caller output. */
