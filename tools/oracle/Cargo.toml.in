@@ -1,0 +1,9 @@
+[package]
+name="hamudi-core-oracle"
+version="0.1.0"
+edition="2024"
+[workspace]
+[dependencies]
+texturecraft-core={path="@UPSTREAM@/crates/core"}
+texturecraft-texel={path="@UPSTREAM@/crates/texel"}
+serde_json="1"

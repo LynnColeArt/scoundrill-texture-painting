@@ -10,7 +10,9 @@ Workspace version: 0.6.1
 Upstream declares MIT OR Apache-2.0. Its README credits the ArtCraft Team and
 TextureCraft contributors. Before adapting implementation or shaders, preserve
 the applicable full license text and notices, and track exact source hashes.
-This foundation imports no upstream implementation or shader code.
+Recovered WGSL, generated variants and SPIR-V are now included under the selected
+MIT license. Full upstream license texts and NOTICE are retained in
+licenses/texturecraft. See ATTRIBUTION.md.
 
 ## Consulted references
 
@@ -39,5 +41,15 @@ reference/behavior-index.json separately pins the consulted harnesses, reports,
 fixtures and comparison artifacts. The original baseline index is unchanged.
 
 The earlier experiment's Rust executables are development oracles. They are
-not Zig implementations. No production Rust linkage, renderer replacement,
-new rendering run or speedup is asserted by this repository foundation.
+not Zig implementations. The new native executable links Vulkan and libc, with
+all renderer host logic in Zig. Its first actor comparison is a new candidate
+run; original records were not overwritten. No default-renderer replacement or
+general speedup has been established.
+
+reference/source-inventory.json records 239 selected upstream source files and
+SHA-256 hashes before porting. Source-informed implementations consult core
+blend.rs, texel tile/color helpers, geometry camera/BVH conventions, paint
+brush/raster/commit conventions, render gpu_trace.rs and the recovered WGSL.
+reference/core-goldens.json identifies the 2592 unchanged Rust blend observations.
+The recording driver is retained in tools/oracle; its Cargo manifest is a path
+template for a separate temporary reference checkout.
