@@ -57,6 +57,20 @@ def verify():
         try:
             before=viewport.frame()
             assert viewport.materials[0]['width']==256
+            assert not viewport.paint(.5,.5,brush=h.Brush(flow=0))
+            assert viewport.revision==0 and not viewport.history and viewport.frame()==before
+            original_call=viewport.library.call
+            def fail_sync(name,*args):
+                if name in ('surface_preview','sync_surface'):raise RuntimeError('Injected GPU synchronization failure')
+                return original_call(name,*args)
+            viewport.library.call=fail_sync
+            try:
+                viewport.begin_paint(.5,.5)
+                raise AssertionError('Injected failure was ignored')
+            except RuntimeError:
+                assert viewport.active is None
+            finally:viewport.library.call=original_call
+            assert viewport.frame()==before
             assert viewport.paint(.5,.5,brush=h.Brush(radius=.06))
             after=viewport.frame();changed=sum(a!=b for a,b in zip(before,after))
             assert 50<changed<len(before)//10, 'A fine stamp must not recolor the whole constant material'
@@ -66,6 +80,7 @@ def verify():
                 image_io_sha256=hashlib.sha256((ROOT/'src/image_io.zig').read_bytes()).hexdigest(),
                 format='HAMUDI02',large=large,load_restores_material_defaults_exact=True,
                 constant_material_detailing=dict(paint_resolution=256,changed_bytes=changed,undo_exact=True),
+                empty_gesture_preserves_revision=True,failed_preview_releases_gesture=True,
                 crc_and_truncation='covered by native unit tests',legacy_JSON='covered by native unit tests')
 
 

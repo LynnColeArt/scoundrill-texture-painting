@@ -268,7 +268,7 @@ class PreparedViewport:
         self.library.call('set_scene',self.renderer.handle,self.scene.handle)
     def paint(self,u,v,color=(.8,.05,.03),brush=None,channel=0):
         if not self.begin_paint(u,v,color,brush,channel): return False
-        self.finish_paint();return True
+        return self.finish_paint()
     def begin_paint(self,u,v,color=(.8,.05,.03),brush=None,channel=0,expected_revision=None):
         if self.active:raise RuntimeError('A brush gesture is already active')
         if expected_revision is not None and expected_revision!=self.revision:raise RuntimeError('StaleRevision')
@@ -277,13 +277,13 @@ class PreparedViewport:
         material=hit.material
         if material not in self.surfaces:
             mat=self.materials[material];self.surfaces[material]=Surface(self.library,mat['width'],mat['height'],mat['rgba'],mat.get('roughness',.5),mat.get('metallic',0.))
-        surface=self.surfaces[material];b=brush or Brush();token=surface.begin(color,channel)
-        self.active=dict(surface=surface,material=material,token=token,brush=b,last=(u,v))
+        surface=self.surfaces[material];b=brush or Brush();before_revision=surface.revision;token=surface.begin(color,channel)
+        self.active=dict(surface=surface,material=material,token=token,brush=b,last=(u,v),before_revision=before_revision)
         try:
             self.library.call('surface_stamp_world_active',surface.handle,token,self.scene.handle,material,hit.point,hit.normal,self.camera.eye(),C.byref(b))
             self.library.call('surface_preview',self.renderer.handle,material,surface.handle,token)
         except BaseException:
-            surface.cancel(token);self.library.call('sync_surface',self.renderer.handle,material,surface.handle);self.active=None;raise
+            surface.cancel(token);self.active=None;self.library.call('sync_surface',self.renderer.handle,material,surface.handle);raise
         if channel==4:self.library.call('material_height',self.renderer.handle,material,.02)
         return True
     def continue_paint(self,u,v):
@@ -301,9 +301,12 @@ class PreparedViewport:
     def finish_paint(self,cancel=False):
         if not self.active:return False
         state=self.active;surface=state['surface'];material=state['material']
+        changed=False
         if cancel:surface.cancel(state['token'])
-        else:surface.commit(state['token']);self.history.append(material);self.redo_history.clear();self.revision+=1
-        self.active=None;self.library.call('sync_surface',self.renderer.handle,material,surface.handle);return True
+        else:
+            surface.commit(state['token']);changed=surface.revision!=state['before_revision']
+            if changed:self.history.append(material);self.redo_history.clear();self.revision+=1
+        self.active=None;self.library.call('sync_surface',self.renderer.handle,material,surface.handle);return cancel or changed
     def undo(self):
         if not self.history:return False
         material=self.history[-1];surface=self.surfaces[material]
