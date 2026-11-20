@@ -1,0 +1,201 @@
+{
+  "indexed_on": "2026-11-20",
+  "reference_root": "/home/lynn/projects/scoundrill",
+  "scoundrill_commit": "86940697f3f9ace547c4309a42df6aa596898be6",
+  "texturecraft_commit": "52ba5338dc07640704d58122e559355a41147b6a",
+  "scope": "Index of existing evidence; no new run or recapture; results remain in the sibling checkout",
+  "files": [
+    {
+      "path": "docs/TEXTURECRAFT-RENDERER.md",
+      "bytes": 5346,
+      "sha256": "337a8d3bfea78e869e186b8013279fcebed3c0db603d96db49454438b7d984a2",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/README.md",
+      "bytes": 9079,
+      "sha256": "8d0a453bba66d490d789ab3a1a9d07a7f91f04c3250680a1a7e40444d3be1663",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/results/adapter-report.json",
+      "bytes": 1703,
+      "sha256": "90bff063456a90904e81835a5a6923a100fd4b34e2fbd2e71e79cd153ec7933e",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/results/checks.json",
+      "bytes": 596,
+      "sha256": "ddb913d50a9d21b84fd379a2973fb87a15756d8346601cbf9af61344907085fb",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/results/cycles-optix-4k.png",
+      "bytes": 7501664,
+      "sha256": "253a40b40c121cade00db1eaa9001a956c313200cd48555e1a0a3307953c71c5",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/results/floorless.png",
+      "bytes": 66155,
+      "sha256": "b1aa18725b110e226c0371bc223639be43a05be274967cee9dc85b7a1288099a",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/results/measurements.json",
+      "bytes": 17123,
+      "sha256": "0d0cc6ca4305341642f8f0a0ea7243fc8c4e3399490888531ccae16fed1c1c3a",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/results/provenance.json",
+      "bytes": 24566,
+      "sha256": "aa879ade5cbcbd39b2fce666674a343824b96a194efef2edc34d599a0fa8a828",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/results/stock-smoke.txt",
+      "bytes": 1011,
+      "sha256": "35b26b80793891fd8e30348809d0617d43bc3577ea0ee60f484cfe272e9062aa",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/results/texturecraft-4k.png",
+      "bytes": 1514947,
+      "sha256": "611d973ca358e8fcdf4469e4052efbe2817b0aeb72c0c797d451e43b2704333d",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/results/texturecraft-studio-raster.png",
+      "bytes": 105182,
+      "sha256": "07cdbe2b4809ab42127bdbce26e08b0fc204fa7c77fc7aaa5286f83c7441a108",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/results/texturecraft-studio-traced.png",
+      "bytes": 522518,
+      "sha256": "41eb0bdfd93a0b812ae4aefe275ff73e47b5e2dba37a7f62904767e6e0241af4",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/results/unused-outlier.png",
+      "bytes": 65348,
+      "sha256": "45d03ced3ca83341761975d89ba6b5c6528878699d0229865db40db80b5af4ac",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/results/upstream-tests.txt",
+      "bytes": 2622,
+      "sha256": "fececd9321dea9a63d15532e50473127a04518d4ec1ed1f8ee5ee8c5f0107c2f",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/README.md",
+      "bytes": 7596,
+      "sha256": "214445b94076a0bfbf64becf1779970b735d7fe56f7845e0ba710a3a2e11b6db",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/checks.json",
+      "bytes": 1015,
+      "sha256": "97b49079cf8368c72dbf37cc6448618738d0a4613bb5f7349f55c798c0fbca96",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/comparison.png",
+      "bytes": 317474,
+      "sha256": "3b6ad0d2ecd7fc293a5617adfb8f6a42ec9c86e1578a0604f68576206fc08348",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/directional-sweep.gif",
+      "bytes": 249984,
+      "sha256": "b37e99c732a8454e90718d27d82d0fdd2e25916830ad32b933fdfe46f9f44791",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/lamp-left-raster.png",
+      "bytes": 28628,
+      "sha256": "cc8b2c13233f81d0f391b7e7920bfef1998140a74f8f5688c7579bd0469064a8",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/lamp-left-traced.png",
+      "bytes": 610613,
+      "sha256": "6016b9bc9573b0d775f65394fefd535703767b199a4303f24805485be878c2fc",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/lamp-off-raster.png",
+      "bytes": 27655,
+      "sha256": "122d5014cef00430f8f70fe5fead676d946e67aa9a59ceb08bcb821e2b1f8deb",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/lamp-off-traced.png",
+      "bytes": 19558,
+      "sha256": "cc731250fbf03186ee4947d1aff33b4d36807e5c1a9091b495f68786bd0400b1",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/lamp-right-traced.png",
+      "bytes": 539719,
+      "sha256": "613ec73a5e1eb91419c461b8b4518e1b0c39aeac6b2fb35211da8308dd22ea98",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/measurements.json",
+      "bytes": 18548,
+      "sha256": "5acfad4c434a14dbc30ec50a8651bd449f08941caca219d4ccdb31103a2e05b1",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/provenance.json",
+      "bytes": 9813,
+      "sha256": "2b6aa2a9c6de3541237440ddfaef1dda27ed972e6a15f7a4d071b1f817160da2",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/window-closed-raster.png",
+      "bytes": 42314,
+      "sha256": "430f4956996b8449fc24bcdf5394e225085dca8da44740f52f19a0282354ab6f",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/window-closed-traced.png",
+      "bytes": 19574,
+      "sha256": "03a6d28be71575c53411803c9f50ad5434b93551e7d64beb6b8ea8447acacb28",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/window-open-raster-4k.png",
+      "bytes": 340416,
+      "sha256": "cbec510a98b3de0de33423e54115a31e35ed7fca2100476a23d081c16c1f1c9e",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/window-open-raster.png",
+      "bytes": 59065,
+      "sha256": "5739fc889d667cc2638291bf4d2ed991172392bd94e8c138c51df3d89651d293",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/window-open-traced.png",
+      "bytes": 294328,
+      "sha256": "e1c29de38075cadba708f958027cb7b335350e95e2ebb5482c8ee7789e074e75",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/window-sweep-raster.png",
+      "bytes": 59065,
+      "sha256": "5739fc889d667cc2638291bf4d2ed991172392bd94e8c138c51df3d89651d293",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/results/window-unshadowed-raster.png",
+      "bytes": 62772,
+      "sha256": "af5092bb470661d2b2c636b3928a902e2b955e38791b560ec5c94b698bf9f333",
+      "matches_recorded_commit": true
+    }
+  ]
+}

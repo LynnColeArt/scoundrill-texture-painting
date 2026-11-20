@@ -1,0 +1,90 @@
+{
+  "repository": "https://github.com/storytold/texturecraft",
+  "commit": "52ba5338dc07640704d58122e559355a41147b6a",
+  "workspace_version": "0.6.1",
+  "inspection_date": "2026-11-20",
+  "inspection_scope": "Pinned documentation and manifests only; no implementation imported",
+  "references": [
+    {
+      "path": "README.md",
+      "url": "https://github.com/storytold/texturecraft/blob/52ba5338dc07640704d58122e559355a41147b6a/README.md"
+    },
+    {
+      "path": "Cargo.toml",
+      "url": "https://github.com/storytold/texturecraft/blob/52ba5338dc07640704d58122e559355a41147b6a/Cargo.toml"
+    },
+    {
+      "path": "docs/architecture.md",
+      "url": "https://github.com/storytold/texturecraft/blob/52ba5338dc07640704d58122e559355a41147b6a/docs/architecture.md"
+    },
+    {
+      "path": "crates/core/Cargo.toml",
+      "url": "https://github.com/storytold/texturecraft/blob/52ba5338dc07640704d58122e559355a41147b6a/crates/core/Cargo.toml"
+    },
+    {
+      "path": "crates/texel/Cargo.toml",
+      "url": "https://github.com/storytold/texturecraft/blob/52ba5338dc07640704d58122e559355a41147b6a/crates/texel/Cargo.toml"
+    },
+    {
+      "path": "crates/geom/Cargo.toml",
+      "url": "https://github.com/storytold/texturecraft/blob/52ba5338dc07640704d58122e559355a41147b6a/crates/geom/Cargo.toml"
+    },
+    {
+      "path": "crates/compose/Cargo.toml",
+      "url": "https://github.com/storytold/texturecraft/blob/52ba5338dc07640704d58122e559355a41147b6a/crates/compose/Cargo.toml"
+    },
+    {
+      "path": "crates/paint/Cargo.toml",
+      "url": "https://github.com/storytold/texturecraft/blob/52ba5338dc07640704d58122e559355a41147b6a/crates/paint/Cargo.toml"
+    },
+    {
+      "path": "crates/bake/Cargo.toml",
+      "url": "https://github.com/storytold/texturecraft/blob/52ba5338dc07640704d58122e559355a41147b6a/crates/bake/Cargo.toml"
+    },
+    {
+      "path": "crates/render/Cargo.toml",
+      "url": "https://github.com/storytold/texturecraft/blob/52ba5338dc07640704d58122e559355a41147b6a/crates/render/Cargo.toml"
+    },
+    {
+      "path": "crates/engine/Cargo.toml",
+      "url": "https://github.com/storytold/texturecraft/blob/52ba5338dc07640704d58122e559355a41147b6a/crates/engine/Cargo.toml"
+    }
+  ],
+  "direct_internal_dependencies": {
+    "core": [],
+    "texel": [],
+    "geom": [],
+    "compose": [
+      "core",
+      "texel",
+      "geom"
+    ],
+    "paint": [
+      "core",
+      "texel",
+      "geom",
+      "compose"
+    ],
+    "bake": [
+      "core",
+      "geom",
+      "texel"
+    ],
+    "render": [
+      "core",
+      "texel",
+      "geom",
+      "compose",
+      "bake"
+    ],
+    "engine": [
+      "core",
+      "texel",
+      "geom",
+      "compose",
+      "paint",
+      "bake",
+      "formats"
+    ]
+  }
+}
