@@ -50,7 +50,12 @@ def bindings():
 
 
 def consumer_checks(prepared, output):
+    from PIL import Image
+    import io
     h = bindings()
+    with h.Surface(h.Library(),4,4) as sample:
+        assert Image.open(io.BytesIO(sample.png(channel=1,bits=8))).getpixel((0,0))[0]==128
+        assert Image.open(io.BytesIO(sample.png(channel=0,bits=8))).getpixel((0,0))[0]==188
     vp = h.PreparedViewport(prepared, width=640, height=360)
     try:
         original = vp.frame()
@@ -130,7 +135,7 @@ def consumer_checks(prepared, output):
         return dict(live_preview=True, cancel_exact=True, grouped_undo_exact=True, redo_exact=True,
                     stale_revision_rejected=True, native_project_roundtrip=True, garment_metallic_paint=True,
                     uv_split_deformation=True, invalid_pose_atomic=True, progressive_cancel_between_batches=True,
-                    project_bytes=len(project), warm_brush_to_readback_ms=timings,
+                    project_bytes=len(project),png_color_and_data_defaults=True,warm_brush_to_readback_ms=timings,
                     warm_begin_to_readback_ms=begin_ms,warm_drag_to_readback_ms=drag_ms,
                     warm_reference_one_sample_begin_ms=reference_ms)
     finally:

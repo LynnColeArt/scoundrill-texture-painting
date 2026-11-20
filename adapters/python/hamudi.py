@@ -180,7 +180,8 @@ class Surface(Resource):
         output=C.create_string_buffer(required.value);self.library.call('surface_save',self.handle,output,len(output),C.byref(required));return output.raw
     def load(self,data):
         self.library.call('surface_load',self.handle,data,len(data));row=json.loads(data);self.width=row['width'];self.height=row['height'];self.layer=len(row['layers'])-1
-    def png(self,channel=0,bits=16,color=True):
+    def png(self,channel=0,bits=16,color=None):
+        if color is None:color=channel in (0,7,10,15)
         required=Z();self.library.call('surface_png',self.handle,channel,bits,color,None,0,C.byref(required))
         output=C.create_string_buffer(required.value);self.library.call('surface_png',self.handle,channel,bits,color,output,len(output),C.byref(required));return output.raw
 

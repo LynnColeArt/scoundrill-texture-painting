@@ -3,7 +3,7 @@ const std = @import("std");
 const m = @import("math.zig");
 const paint = @import("painting.zig");
 const tex = @import("texel.zig");
-pub const PngOptions = struct { bits: enum { eight, sixteen } = .eight, color: bool = true };
+pub const PngOptions = struct { bits: enum { eight, sixteen } = .eight, color: ?bool = null };
 pub fn png(a: std.mem.Allocator, width: u32, height: u32, pixels: []const [4]u16, options: PngOptions) ![]u8 {
     if (width == 0 or height == 0 or width > 8192 or height > 8192 or pixels.len != @as(u64, width) * height) return error.ImageBudget;
     const stride: @TypeOf(@as(usize, 0)) = if (options.bits == .eight) 4 else 8;
@@ -13,7 +13,7 @@ pub fn png(a: std.mem.Allocator, width: u32, height: u32, pixels: []const [4]u16
     for (0..height) |y| {
         raw.appendAssumeCapacity(0);
         for (pixels[y * width ..][0..width]) |p| for (p, 0..) |v, k| {
-            const value = if (options.color and k < 3) m.u16of(m.srgb(@as(f32, @floatFromInt(v)) / 65535)) else v;
+            const value = if ((options.color orelse true) and k < 3) m.u16of(m.srgb(@as(f32, @floatFromInt(v)) / 65535)) else v;
             if (options.bits == .eight) raw.appendAssumeCapacity(@intCast(value >> 8)) else {
                 raw.appendAssumeCapacity(@intCast(value >> 8));
                 raw.appendAssumeCapacity(@truncate(value));
@@ -69,7 +69,12 @@ pub fn exportChannel(a: std.mem.Allocator, doc: paint.Document, ch: paint.Channe
     const data = try a.alloc([4]u16, @as(usize, doc.width) * doc.height);
     defer a.free(data);
     try doc.region(ch, 0, 0, doc.width, doc.height, data);
-    return png(a, doc.width, doc.height, data, options);
+    var resolved = options;
+    if (resolved.color == null) resolved.color = switch (ch) {
+        .base_color, .emissive, .specular, .sheen_color => true,
+        else => false,
+    };
+    return png(a, doc.width, doc.height, data, resolved);
 }
 const StoredTile = struct { x: u32, y: u32, data: []const u16 };
 const StoredImage = struct { components: u8, tiles: []const StoredTile };

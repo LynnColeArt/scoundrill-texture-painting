@@ -113,7 +113,10 @@ not pixel-identical to TextureCraft's shadow-map/IBL/postprocessing pipeline.
 The tracer retains the recovered transport and denoising algorithms with an
 adapted buffer resource layout. Actor/room parity remains an explicit check.
 
-Native PNG export supports RGBA8/RGBA16. Project persistence uses a versioned
+Native PNG export supports RGBA8/RGBA16 with a channel color policy:
+albedo/emission/specular/sheen color export as sRGB;
+roughness, normals, height and other data maps stay linear by default. Explicit
+color overrides remain available. Project persistence uses a versioned
 native JSON schema with a 128 MiB serialized budget. Save preflights that budget
 before allocating JSON output, and rejects nonfinite/invalid documents; it does
 not emit a project that its own loader will reject for size. This is not .tcraft
