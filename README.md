@@ -9,17 +9,23 @@ The unchanged Rust TextureCraft build established feasibility. It remains a
 pinned behavior reference for a complete Zig recreation of the selected systems,
 rather than a runtime dependency of the finished libraries.
 
-Status: Zig geometry, sparse COW image storage, all 32 blend modes, atomic
-paint strokes and undo/redo are implemented. A Zig-owned Vulkan tracer renders
-the existing Movie Maker actor using the recovered tracing/denoising shaders.
-Scoundrill has not switched renderers; raster rendering, broader authoring,
-baking, IO, performance work and integration remain in progress.
+Status: reusable authoring and rendering libraries are running in Zig. They
+include COW surfaces, 32 blend modes, masks and procedural fills, UV/world
+painting with atomic history, map generation, PNG/project IO, hardware PBR raster
+rendering, and the recovered progressive tracer/denoiser. The first real actor
+paint/render/undo/redo workflow passes. Scoundrill default integration and the
+broader parity/performance work remain in progress.
+
+The pure Zig `texture_painting` module has no Vulkan or libc dependency.
+`hamudi1` supplies rendering and an optional material-update bridge. Static/shared
+C libraries and Python bindings are included; see [API and ownership](docs/API.md).
 
 Build with Zig 0.16.0 and the system Vulkan development loader:
 
 ```sh
 zig build -Doptimize=ReleaseSafe
-zig build test
+zig build test -Dgpu=false
+zig build integration
 ./zig-out/bin/hamudi SCENE.json OUT.ppm 256 144 128 gpu
 ```
 

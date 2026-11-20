@@ -16,11 +16,11 @@
 - [ ] Extend the original reference to deterministic paint/composite/bake cases.
 - [ ] Establish isolated viewport and painting performance baselines.
 - [x] Implement shared geometry, surface storage and material contracts.
-- [ ] Implement hamudi-1 raster rendering and scene/material update handling.
-- [ ] Implement brushes, visibility, seams, dirty compositing and history.
-- [ ] Complete the first actor/prop paint-render-undo-export workflow.
+- [x] Implement hamudi-1 raster rendering and scene/material update handling.
+- [x] Implement brushes, visibility, seams, dirty compositing and history.
+- [x] Complete the first actor/prop paint-render-undo-export workflow.
 - [ ] Recover the remaining selected tracing, denoising, map baking and IO features.
-- [ ] Validate skin/makeup, building/object and detailing workflows.
+- [x] Validate initial skin/makeup, building/object and detailing workflows.
 - [ ] Profile and optimize CPU/GPU work while retaining acceptance.
 - [ ] Integrate deforming actors and editor events in Scoundrill.
 - [ ] Pass Scoundrill regressions and switch the default viewport to hamudi-1.

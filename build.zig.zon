@@ -1,1 +1,1 @@
-.{ .name = .scoundrill_texture_painting, .version = "0.1.0", .fingerprint = 0xbf616aa74ce5410a, .minimum_zig_version = "0.16.0", .paths = .{ "build.zig", "build.zig.zon", "src", "shaders", "include", "licenses" } }
+.{ .name = .scoundrill_texture_painting, .version = "0.1.0", .fingerprint = 0xbf616aa74ce5410a, .minimum_zig_version = "0.16.0", .paths = .{ "build.zig", "build.zig.zon", "src", "shaders", "include", "licenses", "examples", "adapters", "docs", "LICENSE", "ATTRIBUTION.md", "README.md" } }

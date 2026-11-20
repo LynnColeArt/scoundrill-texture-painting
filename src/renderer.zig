@@ -1,8 +1,11 @@
 //! Zig-owned persistent scene and progressive Vulkan path tracer.
 const std = @import("std");
-const m = @import("math.zig");
-const g = @import("geometry.zig");
+const core = @import("texture_painting");
+const m = core.math;
+const g = core.geometry;
 pub const gpu = @import("vulkan.zig");
+const raster_backend = @import("raster.zig");
+pub const PreviewSettings = struct { light: [4]f32 = .{ -0.5, 1, 0.5, 3 }, color: [3]f32 = .{ 1, 1, 1 }, exposure: f32 = 1, filmic: bool = true, shadows: bool = true };
 pub const Material = struct {
     width: u32 = 1,
     height: u32 = 1,
@@ -18,7 +21,21 @@ pub const Material = struct {
     metallic_map: []const u16 = &.{},
     height_strength: f32 = 0,
 };
-pub const Settings = struct { bounces: u32 = 7, denoise: bool = true, exposure: f32 = 1, filmic: bool = false, environment_opacity: f32 = 1, legacy_bounds_offset: bool = true, lens_radius: f32 = 0, focus: f32 = 0, ior: f32 = 1.5 };
+const Sampling = struct { bounces: u32, legacy: bool, lens: f32, focus: f32, ior: f32 };
+pub const Settings = struct {
+    bounces: u32 = 7,
+    denoise: bool = true,
+    exposure: f32 = 1,
+    filmic: bool = false,
+    environment_opacity: f32 = 1,
+    legacy_bounds_offset: bool = true,
+    lens_radius: f32 = 0,
+    focus: f32 = 0,
+    ior: f32 = 1.5,
+    pub fn validate(self: Settings) !void {
+        if (!std.math.isFinite(self.exposure) or self.exposure < 0 or self.exposure > 1e6 or !std.math.isFinite(self.environment_opacity) or self.environment_opacity < 0 or self.environment_opacity > 1 or !std.math.isFinite(self.lens_radius) or self.lens_radius < 0 or self.lens_radius > 1e4 or !std.math.isFinite(self.focus) or self.focus < 0 or self.focus > 1e12 or !std.math.isFinite(self.ior) or self.ior < 1 or self.ior > 5) return error.InvalidSettings;
+    }
+};
 pub const Params = extern struct { inv_vp: [16]f32, forward: [4]f32, size: [4]u32, cfg: [4]u32, env: [4]f32, sigma: [4]f32, eye: [4]f32, lens: [4]f32, sets: [256][4]f32 };
 const Post = extern struct { size: [4]u32, display: [4]f32, top: [4]f32, bottom: [4]f32 };
 pub const Stats = struct { geometry_uploads: u64 = 0, material_uploads: u64 = 0, uploaded_bytes: u64 = 0, dispatches: u64 = 0, accumulation_resets: u64 = 0 };
@@ -43,9 +60,15 @@ pub const Renderer = struct {
     bounds: g.Bounds = .{},
     stats: Stats = .{},
     last_camera: ?m.Camera = null,
+    last_sampling: ?Sampling = null,
+    raster: ?raster_backend.Raster = null,
+    raster_params: gpu.Buffer = .{},
+    triangle_count: u32 = 0,
+    srgb_lut: [4096]u8 = undefined,
     pub fn init(a: std.mem.Allocator) !Renderer {
         var self: Renderer = .{ .allocator = a, .ctx = try gpu.Context.init(a) };
         errdefer self.deinit();
+        for (&self.srgb_lut, 0..) |*v, i| v.* = m.u8of(m.srgb((@as(f32, @floatFromInt(i)) + 0.5) / 4096));
         self.trace = try gpu.Program.init(&self.ctx, @embedFile("spirv/trace_main.spv"), "trace_main", 12);
         self.init_post = try gpu.Program.init(&self.ctx, @embedFile("spirv/denoise_init.spv"), "denoise_init", 8);
         self.step_post = try gpu.Program.init(&self.ctx, @embedFile("spirv/denoise_step.spv"), "denoise_step", 8);
@@ -57,6 +80,8 @@ pub const Renderer = struct {
     }
     pub fn deinit(self: *Renderer) void {
         _ = gpu.c.vkDeviceWaitIdle(self.ctx.device);
+        if (self.raster) |*raster| raster.deinit(&self.ctx);
+        self.raster_params.deinit(&self.ctx);
         self.trace.deinit(&self.ctx);
         self.init_post.deinit(&self.ctx);
         self.step_post.deinit(&self.ctx);
@@ -68,16 +93,24 @@ pub const Renderer = struct {
         self.ctx.deinit();
         self.* = undefined;
     }
-    fn replace(self: *Renderer, index: usize, bytes: []const u8) !void {
-        var next = try gpu.Buffer.init(&self.ctx, bytes.len, false);
-        errdefer next.deinit(&self.ctx);
-        try next.write(bytes);
-        self.buffers[index].deinit(&self.ctx);
-        self.buffers[index] = next;
-        self.stats.uploaded_bytes += bytes.len;
+    fn replaceMany(self: *Renderer, indices: []const usize, data: []const []const u8) !void {
+        if (indices.len > 3 or indices.len != data.len) return error.DeviceLimit;
+        var next: [3]gpu.Buffer = @splat(.{});
+        errdefer for (&next) |*b| b.deinit(&self.ctx);
+        for (data, 0..) |bytes, i| {
+            next[i] = try gpu.Buffer.init(&self.ctx, bytes.len, false);
+            try next[i].write(bytes);
+        }
+        for (indices, data, 0..) |index, bytes, i| {
+            self.buffers[index].deinit(&self.ctx);
+            self.buffers[index] = next[i];
+            self.stats.uploaded_bytes += bytes.len;
+        }
     }
     pub fn setMesh(self: *Renderer, mesh: g.Mesh, bvh: *const g.Bvh) !void {
         try mesh.validate();
+        const tangents = if (mesh.tangents.len == mesh.positions.len) mesh.tangents else try g.computeTangents(self.allocator, mesh);
+        defer if (mesh.tangents.len != mesh.positions.len) self.allocator.free(tangents);
         if (bvh.order.len != mesh.indices.len / 3) return error.InvalidBvh;
         var nodes: std.ArrayList([4]u32) = .empty;
         defer nodes.deinit(self.allocator);
@@ -94,7 +127,7 @@ pub const Renderer = struct {
         defer self.allocator.free(triangles);
         for (bvh.order, 0..) |orig, i| {
             const ids = mesh.indices[orig * 3 ..][0..3];
-            const sign: f32 = if (mesh.tangents.len == mesh.positions.len) mesh.tangents[ids[0]][3] else 1;
+            const sign: f32 = tangents[ids[0]][3];
             for (0..3) |k| triangles[i * 4 + k] = bits(mesh.positions[ids[k]], switch (k) {
                 0 => if (mesh.materials.len > 0) mesh.materials[orig] else 0,
                 1 => @bitCast(sign),
@@ -105,14 +138,14 @@ pub const Renderer = struct {
         var vertices = try self.allocator.alloc([4]f32, mesh.positions.len * 2);
         defer self.allocator.free(vertices);
         for (mesh.normals, mesh.uvs, 0..) |n, uv, i| {
-            const t: m.V3 = if (mesh.tangents.len == mesh.positions.len) mesh.tangents[i][0..3].* else tangent(n);
+            const t: m.V3 = tangents[i][0..3].*;
             vertices[i * 2] = .{ n[0], n[1], n[2], uv[0] };
             vertices[i * 2 + 1] = .{ t[0], t[1], t[2], uv[1] };
         }
-        try self.replace(1, std.mem.sliceAsBytes(nodes.items));
-        try self.replace(2, std.mem.sliceAsBytes(triangles));
-        try self.replace(3, std.mem.sliceAsBytes(vertices));
-        self.bounds = bvh.nodes[0].bounds;
+        try self.replaceMany(&.{ 1, 2, 3 }, &.{ std.mem.sliceAsBytes(nodes.items), std.mem.sliceAsBytes(triangles), std.mem.sliceAsBytes(vertices) });
+        self.bounds = .{};
+        for (mesh.positions) |position| self.bounds.grow(position);
+        self.triangle_count = @intCast(mesh.indices.len / 3);
         self.stats.geometry_uploads += 1;
         self.reset();
     }
@@ -123,21 +156,28 @@ pub const Renderer = struct {
         var env_pixels: [w * h][4]f32 = undefined;
         for (&env_pixels) |*p| p.* = .{ color[0], color[1], color[2], 1 };
         var cdf: [h + w * h * 2]f32 = undefined;
-        var total: f32 = 0;
-        for (0..h) |y| total += @sin(std.math.pi * (@as(f32, @floatFromInt(y)) + 0.5) / h);
-        var row: f32 = 0;
+        var weights: [w * h]f32 = undefined;
+        const luminance = color[0] * 0.2126 + color[1] * 0.7152 + color[2] * 0.0722;
         for (0..h) |y| {
-            const weight = @sin(std.math.pi * (@as(f32, @floatFromInt(y)) + 0.5) / h) / total;
-            row += weight;
-            cdf[y] = row;
+            const sin = @sin(@as(f32, std.math.pi) * (@as(f32, @floatFromInt(y)) + 0.5) / h);
+            for (0..w) |x| weights[y * w + x] = (luminance + 1e-4) * sin;
+        }
+        var total: f32 = 0;
+        for (weights) |v| total += v;
+        for (weights, 0..) |v, i| cdf[h + w * h + i] = v / total;
+        var rows: f32 = 0;
+        for (0..h) |y| {
+            var sum: f32 = 0;
+            for (0..w) |x| sum += cdf[h + w * h + y * w + x];
+            rows += sum;
+            cdf[y] = rows;
+            var column: f32 = 0;
             for (0..w) |x| {
-                cdf[h + y * w + x] = @as(f32, @floatFromInt(x + 1)) / w;
-                cdf[h + w * h + y * w + x] = weight / w;
+                column += cdf[h + w * h + y * w + x] / sum;
+                cdf[h + y * w + x] = column;
             }
         }
-        cdf[h - 1] = 1;
-        try self.replace(4, std.mem.sliceAsBytes(&cdf));
-        try self.replace(9, std.mem.sliceAsBytes(&env_pixels));
+        try self.replaceMany(&.{ 4, 9 }, &.{ std.mem.sliceAsBytes(&cdf), std.mem.sliceAsBytes(&env_pixels) });
         self.environment = color;
         self.reset();
     }
@@ -167,13 +207,14 @@ pub const Renderer = struct {
                 };
                 if (large) mask &= ~(@as(u32, 1) << @intCast(k));
                 const count = if (large) area else 1;
+                if (words.items.len + count * (if (k == 2 or k == 3) @as(usize, 2) else 1) > self.ctx.properties.limits.maxStorageBufferRange / 4) return error.MaterialBudget;
                 try words.ensureUnusedCapacity(self.allocator, count * (if (k == 2 or k == 3) @as(usize, 2) else 1));
                 for (0..count) |p| {
                     switch (k) {
                         0 => {
                             var col: [4]u8 = .{ m.u8of(m.srgb(mat.base[0])), m.u8of(m.srgb(mat.base[1])), m.u8of(m.srgb(mat.base[2])), m.u8of(mat.opacity) };
                             if (mat.rgba.len > 0) {
-                                for (0..3) |c| col[c] = srgb16(mat.rgba[p][c]);
+                                for (0..3) |c| col[c] = self.srgb_lut[mat.rgba[p][c] >> 4];
                                 col[3] = @intCast(mat.rgba[p][3] >> 8);
                             }
                             words.appendAssumeCapacity(@bitCast(col));
@@ -200,8 +241,7 @@ pub const Renderer = struct {
             }
             sets[i] = .{ @floatFromInt(mat.width), @floatFromInt(mat.height), @floatFromInt(mask), mat.height_strength };
         }
-        try self.replace(10, std.mem.sliceAsBytes(words.items));
-        try self.replace(11, std.mem.sliceAsBytes(&offsets));
+        try self.replaceMany(&.{ 10, 11 }, &.{ std.mem.sliceAsBytes(words.items), std.mem.sliceAsBytes(&offsets) });
         self.sets = sets;
         self.offsets = offsets;
         self.material_count = @intCast(materials.len);
@@ -213,15 +253,55 @@ pub const Renderer = struct {
         const info = self.sets[material];
         const width: u32 = @intFromFloat(info[0]);
         const height: u32 = @intFromFloat(info[1]);
-        if (x > width or y > height or w > width - x or h > height - y or @as(u32, @intFromFloat(info[2])) & 1 != 0) return error.InvalidRegion;
+        if (x > width or y > height or w > width - x or h > height - y) return error.InvalidRegion;
+        try self.denseKind(material, 0);
         const base = self.offsets[material * 8];
         for (0..h) |dy| for (0..w) |dx| {
             const p = rgba[dy * w + dx];
-            const word: u32 = @bitCast([4]u8{ srgb16(p[0]), srgb16(p[1]), srgb16(p[2]), @intCast(p[3] >> 8) });
+            const word: u32 = @bitCast([4]u8{ self.srgb_lut[p[0] >> 4], self.srgb_lut[p[1] >> 4], self.srgb_lut[p[2] >> 4], @intCast(p[3] >> 8) });
             const at = (base + (@as(usize, y) + dy) * width + x + dx) * 4;
             @memcpy(self.buffers[10].bytes[at..][0..4], std.mem.asBytes(&word));
         };
         self.stats.uploaded_bytes += @as(u64, w) * h * 4;
+        self.stats.material_uploads += 1;
+        self.reset();
+    }
+    fn denseKind(self: *Renderer, material: u32, kind: u32) !void {
+        if (material >= self.material_count or kind > 7) return error.InvalidMaterial;
+        const mask: u32 = @intFromFloat(self.sets[material][2]);
+        if (mask & (@as(u32, 1) << @intCast(kind)) == 0) return;
+        const width: usize = @intFromFloat(self.sets[material][0]);
+        const height: usize = @intFromFloat(self.sets[material][1]);
+        const stride: usize = if (kind == 2 or kind == 3) 8 else 4;
+        const previous = self.buffers[10];
+        const size = previous.bytes.len + width * height * stride;
+        var next = try gpu.Buffer.init(&self.ctx, size, false);
+        errdefer next.deinit(&self.ctx);
+        @memcpy(next.bytes[0..previous.bytes.len], previous.bytes);
+        const offset = self.offsets[material * 8 + kind] * 4;
+        const value = previous.bytes[offset..][0..stride];
+        for (0..width * height) |i| @memcpy(next.bytes[previous.bytes.len + i * stride ..][0..stride], value);
+        self.offsets[material * 8 + kind] = @intCast(previous.bytes.len / 4);
+        self.sets[material][2] = @floatFromInt(mask & ~(@as(u32, 1) << @intCast(kind)));
+        self.buffers[10] = next;
+        var old = previous;
+        old.deinit(&self.ctx);
+        try self.buffers[11].write(std.mem.sliceAsBytes(&self.offsets));
+        self.stats.uploaded_bytes += width * height * stride;
+    }
+    pub fn updatePackedRegion(self: *Renderer, material: u32, kind: u32, x: u32, y: u32, w: u32, h: u32, words: []const u32) !void {
+        if (material >= self.material_count or kind > 7) return error.InvalidMaterial;
+        const stride: usize = if (kind == 2 or kind == 3) 2 else 1;
+        const width: u32 = @intFromFloat(self.sets[material][0]);
+        const height: u32 = @intFromFloat(self.sets[material][1]);
+        if (x > width or y > height or w > width - x or h > height - y or words.len != @as(u64, w) * h * stride) return error.InvalidRegion;
+        try self.denseKind(material, kind);
+        const base = self.offsets[material * 8 + kind];
+        for (0..h) |dy| {
+            const offset = (@as(usize, base) + ((@as(usize, y) + dy) * width + x) * stride) * 4;
+            @memcpy(self.buffers[10].bytes[offset..][0 .. w * stride * 4], std.mem.sliceAsBytes(words[dy * w * stride ..][0 .. w * stride]));
+        }
+        self.stats.uploaded_bytes += words.len * 4;
         self.stats.material_uploads += 1;
         self.reset();
     }
@@ -232,7 +312,7 @@ pub const Renderer = struct {
         errdefer for (&acc) |*b| b.deinit(&self.ctx);
         var illum: [2]gpu.Buffer = @splat(.{});
         errdefer for (&illum) |*b| b.deinit(&self.ctx);
-        const bytes = @as(usize, w) * h * 16;
+        const bytes: usize = 16;
         for (&acc) |*b| b.* = try gpu.Buffer.init(&self.ctx, bytes, false);
         for (&illum) |*b| b.* = try gpu.Buffer.init(&self.ctx, bytes, false);
         const out = try gpu.Buffer.init(&self.ctx, @as(usize, w) * h * 4, false);
@@ -246,24 +326,71 @@ pub const Renderer = struct {
         self.height = h;
         self.reset();
     }
+    fn ensureAccumulation(self: *Renderer) !void {
+        const bytes = @as(usize, self.width) * self.height * 16;
+        if (self.buffers[5].bytes.len == bytes) return;
+        var acc: [4]gpu.Buffer = @splat(.{});
+        errdefer for (&acc) |*b| b.deinit(&self.ctx);
+        var illum: [2]gpu.Buffer = @splat(.{});
+        errdefer for (&illum) |*b| b.deinit(&self.ctx);
+        for (&acc) |*b| b.* = try gpu.Buffer.init(&self.ctx, bytes, false);
+        for (&illum) |*b| b.* = try gpu.Buffer.init(&self.ctx, bytes, false);
+        for (&self.buffers[5..9].*) |*b| b.deinit(&self.ctx);
+        @memcpy(self.buffers[5..9], &acc);
+        for (&self.illum) |*b| b.deinit(&self.ctx);
+        self.illum = illum;
+        self.reset();
+    }
+    pub fn preview(self: *Renderer, camera: m.Camera, settings: PreviewSettings, readback: bool) !?[]const u8 {
+        try camera.validate();
+        if (self.width == 0 or self.material_count == 0 or self.triangle_count == 0 or self.buffers[9].handle == null) return error.SceneNotReady;
+        if (!m.finite(settings.color) or !std.math.isFinite(settings.exposure) or settings.exposure < 0) return error.InvalidSettings;
+        for (settings.light) |v| if (!std.math.isFinite(v)) return error.InvalidLight;
+        if (self.raster == null) {
+            var next = try raster_backend.Raster.init(&self.ctx);
+            errdefer next.deinit(&self.ctx);
+            const uniform = try gpu.Buffer.init(&self.ctx, 64, true);
+            self.raster = next;
+            self.raster_params = uniform;
+        }
+        const r = &self.raster.?;
+        try r.resize(&self.ctx, self.width, self.height);
+        const f = camera.forward();
+        const e = camera.eye();
+        const params: Params = .{ .inv_vp = m.inverse4(camera.inverseVP(@as(f32, @floatFromInt(self.width)) / @as(f32, @floatFromInt(self.height)))), .forward = .{ f[0], f[1], f[2], @max(1e-7, camera.scene_radius * 2e-6) }, .size = .{ self.width, self.height, 0, 1 }, .cfg = .{ 1, 0, 1, self.material_count }, .env = .{ 0, 1, 64, 32 }, .sigma = .{ 1, 1, 1, 0 }, .eye = .{ e[0], e[1], e[2], 1 }, .lens = .{ camera.distance, 0, 1.5, 0 }, .sets = self.sets };
+        try self.buffers[0].write(std.mem.asBytes(&params));
+        const raw: [4][4]f32 = .{ settings.light, .{ settings.color[0], settings.color[1], settings.color[2], 0 }, .{ settings.exposure, if (settings.filmic) 1 else 0, 0, if (settings.shadows) 1 else 0 }, .{ self.environment[0], self.environment[1], self.environment[2], 0 } };
+        try self.raster_params.write(std.mem.asBytes(&raw));
+        r.bind(&self.ctx, &self.buffers, &self.raster_params);
+        try self.ctx.begin();
+        r.draw(&self.ctx, self.triangle_count, if (readback) &self.output else null, .{ m.srgb(self.environment[0]), m.srgb(self.environment[1]), m.srgb(self.environment[2]), 1 });
+        try self.ctx.submit();
+        self.last_camera = null;
+        self.reset();
+        return if (readback) self.output.bytes[0 .. @as(usize, self.width) * self.height * 4] else null;
+    }
     pub fn reset(self: *Renderer) void {
         self.samples = 0;
         self.stats.accumulation_resets += 1;
     }
     pub fn pass(self: *Renderer, camera: m.Camera, settings: Settings, spp: u32) !void {
         try camera.validate();
+        try settings.validate();
         if (self.width == 0 or self.material_count == 0 or self.buffers[1].handle == null or self.buffers[9].handle == null) return error.SceneNotReady;
         if (spp == 0 or spp > 64 or settings.bounces == 0 or settings.bounces > 32 or self.samples > 65536 - spp) return error.SampleBudget;
-        if (self.last_camera == null or !std.meta.eql(camera, self.last_camera.?)) {
+        try self.ensureAccumulation();
+        const sampling: Sampling = .{ .bounces = settings.bounces, .legacy = settings.legacy_bounds_offset, .lens = settings.lens_radius, .focus = settings.focus, .ior = settings.ior };
+        if (self.last_camera == null or self.last_sampling == null or !std.meta.eql(sampling, self.last_sampling.?) or !std.meta.eql(camera, self.last_camera.?)) {
             self.reset();
             self.last_camera = camera;
+            self.last_sampling = sampling;
         }
         if (self.samples == 0) for (self.buffers[5..9]) |b| {
             @memset(b.bytes, 0);
         };
         const f = camera.forward();
         const e = camera.eye();
-        const eps = if (settings.legacy_bounds_offset) m.length(m.sub(self.bounds.hi, self.bounds.lo)) * 2e-5 else @max(1e-7, camera.scene_radius * 2e-6);
+        const eps = if (settings.legacy_bounds_offset) @max(1e-6, m.length(m.sub(self.bounds.hi, self.bounds.lo)) * 2e-5) else @max(1e-7, camera.scene_radius * 2e-6);
         var params: Params = .{ .inv_vp = camera.inverseVP(@as(f32, @floatFromInt(self.width)) / @as(f32, @floatFromInt(self.height))), .forward = .{ f[0], f[1], f[2], eps }, .size = .{ self.width, self.height, self.samples, spp }, .cfg = .{ settings.bounces, 0, 1, self.material_count }, .env = .{ 0, 1, 64, 32 }, .sigma = .{ 1, 1, 1, 0 }, .eye = .{ e[0], e[1], e[2], 1 }, .lens = .{ if (settings.focus > 0) settings.focus else camera.distance, settings.lens_radius, settings.ior, 0 }, .sets = self.sets };
         try self.buffers[0].write(std.mem.asBytes(&params));
         var views: [12]gpu.View = undefined;
@@ -276,6 +403,7 @@ pub const Renderer = struct {
         self.stats.dispatches += 1;
     }
     pub fn pixels(self: *Renderer, settings: Settings) ![]const u8 {
+        try settings.validate();
         if (self.samples == 0) return error.NoSamples;
         const stride = self.post.bytes.len / 6;
         for ([_]u32{ 0, 1, 2, 4, 8, 16 }, 0..) |step, i| {
@@ -312,8 +440,4 @@ fn appendHalf(list: *std.ArrayList(u32), v: [4]f32) void {
     const h: [4]u16 = .{ @bitCast(@as(f16, @floatCast(v[0]))), @bitCast(@as(f16, @floatCast(v[1]))), @bitCast(@as(f16, @floatCast(v[2]))), @bitCast(@as(f16, @floatCast(v[3]))) };
     list.appendAssumeCapacity(@as(u32, h[0]) | (@as(u32, h[1]) << 16));
     list.appendAssumeCapacity(@as(u32, h[2]) | (@as(u32, h[3]) << 16));
-}
-
-fn srgb16(v: u16) u8 {
-    return m.u8of(m.srgb((@as(f32, @floatFromInt(v >> 4)) + 0.5) / 4096));
 }

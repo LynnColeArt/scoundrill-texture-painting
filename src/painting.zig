@@ -89,6 +89,7 @@ pub const Document = struct {
     width: u32,
     height: u32,
     layers: std.ArrayList(Layer) = .empty,
+    defaults: [channel_count]m.V3 = defaultValues(),
     pub fn init(a: std.mem.Allocator, w: u32, h: u32) !Document {
         if (w == 0 or h == 0 or w > 8192 or h > 8192) return error.ImageBudget;
         return .{ .allocator = a, .width = w, .height = h };
@@ -101,10 +102,20 @@ pub const Document = struct {
     pub fn clone(self: Document) !Document {
         const list = try self.allocator.dupe(Layer, self.layers.items);
         for (list) |*layer| layer.* = layer.clone();
-        return .{ .allocator = self.allocator, .width = self.width, .height = self.height, .layers = .fromOwnedSlice(list) };
+        return .{ .allocator = self.allocator, .width = self.width, .height = self.height, .layers = .fromOwnedSlice(list), .defaults = self.defaults };
+    }
+    pub fn retainedBytes(self: Document) usize {
+        var bytes: usize = self.layers.items.len * @sizeOf(Layer);
+        for (self.layers.items) |layer| {
+            for (layer.pixels) |slot| if (slot) |image| {
+                bytes += image.allocated() * 4096 * image.components * 2 + image.table.slots.len * @sizeOf(?*anyopaque);
+            };
+            if (layer.mask) |image| bytes += image.allocated() * 4096 * image.components * 2 + image.table.slots.len * @sizeOf(?*anyopaque);
+        }
+        return bytes;
     }
     pub fn pixel(self: Document, ch: Channel, x: u32, y: u32) m.V3 {
-        var value = ch.defaults();
+        var value = self.defaults[@intFromEnum(ch)];
         const index = @intFromEnum(ch);
         for (self.layers.items) |layer| {
             if (!layer.visible or layer.opacity <= 0 or layer.enabled & (@as(u32, 1) << @intCast(index)) == 0) continue;
@@ -141,7 +152,7 @@ pub const Document = struct {
         if (x > self.width or y > self.height or w > self.width - x or h > self.height - y or out.len != @as(u64, w) * h) return error.InvalidRegion;
         for (0..h) |dy| for (0..w) |dx| {
             const v = self.pixel(ch, x + @as(u32, @intCast(dx)), y + @as(u32, @intCast(dy)));
-            out[dy * w + dx] = .{ m.u16of(v[0]), m.u16of(v[1]), m.u16of(v[2]), m.u16of(self.pixel(.opacity, x + @as(u32, @intCast(dx)), y + @as(u32, @intCast(dy)))[0]) };
+            out[dy * w + dx] = .{ m.u16of(if (ch == .height) v[0] * 0.5 + 0.5 else v[0]), m.u16of(if (ch == .height) v[1] * 0.5 + 0.5 else v[1]), m.u16of(if (ch == .height) v[2] * 0.5 + 0.5 else v[2]), m.u16of(self.pixel(.opacity, x + @as(u32, @intCast(dx)), y + @as(u32, @intCast(dy)))[0]) };
         };
     }
 };
@@ -185,6 +196,8 @@ pub const Session = struct {
     dirty: []bool,
     max_history: usize = 64,
     history_budget: usize = 256 * 1024 * 1024,
+    dirty_channels: u32 = 0,
+    managed_channels: u32 = 0,
     pub fn init(a: std.mem.Allocator, w: u32, h: u32) !Session {
         var d = try Document.init(a, w, h);
         errdefer d.deinit();
@@ -209,6 +222,80 @@ pub const Session = struct {
         try self.document.layers.append(self.allocator, layer);
         @memset(self.dirty, true);
         return self.document.layers.items.len - 1;
+    }
+    fn trimHistory(self: *Session) void {
+        var bytes: usize = 0;
+        for (self.undo_stack.items) |doc| bytes += doc.retainedBytes();
+        while (self.undo_stack.items.len > 0 and (self.undo_stack.items.len > self.max_history or bytes > self.history_budget)) {
+            var old = self.undo_stack.orderedRemove(0);
+            bytes -= old.retainedBytes();
+            old.deinit();
+        }
+    }
+    fn adopt(self: *Session, next: Document) !void {
+        try self.undo_stack.ensureUnusedCapacity(self.allocator, 1);
+        for (self.redo_stack.items) |*doc| doc.deinit();
+        self.redo_stack.clearRetainingCapacity();
+        self.undo_stack.appendAssumeCapacity(self.document);
+        self.document = next;
+        for (next.layers.items) |layer| self.managed_channels |= layer.enabled;
+        self.dirty_channels |= self.managed_channels;
+        self.trimHistory();
+        @memset(self.dirty, true);
+    }
+    pub fn setDefault(self: *Session, ch: Channel, value: m.V3) !void {
+        if (self.active != null or !m.finite(value)) return error.InvalidValue;
+        var next = try self.document.clone();
+        errdefer next.deinit();
+        next.defaults[@intFromEnum(ch)] = value;
+        try self.adopt(next);
+        self.managed_channels |= @as(u32, 1) << @intFromEnum(ch);
+        self.dirty_channels |= @as(u32, 1) << @intFromEnum(ch);
+    }
+    pub fn setFill(self: *Session, index: usize, ch: Channel, value: m.V3, pattern: Pattern, scale: f32) !void {
+        if (self.active != null or index >= self.document.layers.items.len or !std.math.isFinite(scale) or scale <= 0 or scale > 1e6) return error.InvalidLayer;
+        var next = try self.document.clone();
+        errdefer next.deinit();
+        const layer = &next.layers.items[index];
+        if (layer.kind != .fill) return error.InvalidLayer;
+        try layer.setValue(ch, value);
+        layer.pattern = pattern;
+        layer.scale = scale;
+        try self.adopt(next);
+    }
+    pub fn setLayerProperties(self: *Session, index: usize, opacity: f32, visible: bool, ch: Channel, mode: blend.Mode) !void {
+        if (self.active != null or index >= self.document.layers.items.len or !std.math.isFinite(opacity) or opacity < 0 or opacity > 1) return error.InvalidLayer;
+        var next = try self.document.clone();
+        errdefer next.deinit();
+        next.layers.items[index].opacity = opacity;
+        next.layers.items[index].visible = visible;
+        next.layers.items[index].modes[@intFromEnum(ch)] = mode;
+        try self.adopt(next);
+    }
+    pub fn setMask(self: *Session, index: usize, mask: ?tex.Image) !void {
+        if (self.active != null or index >= self.document.layers.items.len) return error.InvalidLayer;
+        if (mask) |image| if (image.width != self.document.width or image.height != self.document.height or image.components != 1) return error.InvalidMask;
+        var next = try self.document.clone();
+        errdefer next.deinit();
+        if (next.layers.items[index].mask) |*image| image.deinit();
+        next.layers.items[index].mask = if (mask) |image| image.clone() else null;
+        try self.adopt(next);
+    }
+    pub fn removeLayer(self: *Session, index: usize) !void {
+        if (self.active != null or index >= self.document.layers.items.len) return error.InvalidLayer;
+        var next = try self.document.clone();
+        errdefer next.deinit();
+        var removed = next.layers.orderedRemove(index);
+        removed.deinit();
+        try self.adopt(next);
+    }
+    pub fn moveLayer(self: *Session, from: usize, to: usize) !void {
+        if (self.active != null or from >= self.document.layers.items.len or to >= self.document.layers.items.len) return error.InvalidLayer;
+        var next = try self.document.clone();
+        errdefer next.deinit();
+        const layer = next.layers.orderedRemove(from);
+        next.layers.insertAssumeCapacity(to, layer);
+        try self.adopt(next);
     }
     pub fn begin(self: *Session, layer: usize, ch: Channel, value: m.V3, opacity: f32, erase: bool) !void {
         if (self.active != null or layer >= self.document.layers.items.len or self.document.layers.items[layer].kind != .paint or !m.finite(value) or !std.math.isFinite(opacity) or opacity < 0 or opacity > 1) return error.InvalidStroke;
@@ -262,7 +349,7 @@ pub const Session = struct {
             remaining = d - length;
         }
     }
-    pub fn stampWorld(self: *Session, mesh: g.Mesh, bvh: *const g.Bvh, uvbuf: g.UvBuffer, center: m.V3, normal: m.V3, brush: Brush, eye: ?m.V3) !void {
+    pub fn stampWorld(self: *Session, mesh: g.Mesh, bvh: *const g.Bvh, uvbuf: g.UvBuffer, center: m.V3, normal: m.V3, brush: Brush, eye: ?m.V3) anyerror!void {
         try brush.validate();
         if (!m.finite(center) or !m.finite(normal) or uvbuf.width != self.document.width or uvbuf.height != self.document.height) return error.InvalidSample;
         const stroke = if (self.active) |*s| s else return error.NoStroke;
@@ -312,6 +399,29 @@ pub const Session = struct {
             mirrored.mirror_x = false;
             try self.stampWorld(mesh, bvh, uvbuf, .{ -center[0], center[1], center[2] }, .{ -normal[0], normal[1], normal[2] }, mirrored, eye);
         }
+        try self.padStroke(uvbuf);
+    }
+    fn padStroke(self: *Session, uv: g.UvBuffer) !void {
+        const stroke = if (self.active) |*s| s else return error.NoStroke;
+        for (0..stroke.alpha.tiles_y) |ty| for (0..stroke.alpha.tiles_x) |tx| {
+            const tile = stroke.alpha.tile(@intCast(tx), @intCast(ty)) orelse continue;
+            for (0..4096) |i| {
+                const x = tx * 64 + i % 64;
+                const y = ty * 64 + i / 64;
+                if (x >= uv.width or y >= uv.height or tile[i] == 0 or uv.texels[y * uv.width + x].triangle == std.math.maxInt(u32)) continue;
+                const alpha = tile[i];
+                for (0..5) |dy| for (0..5) |dx| {
+                    const nx = @as(i64, @intCast(x)) + @as(i64, @intCast(dx)) - 2;
+                    const ny = @as(i64, @intCast(y)) + @as(i64, @intCast(dy)) - 2;
+                    if (nx < 0 or ny < 0 or nx >= uv.width or ny >= uv.height) continue;
+                    const xx: u32 = @intCast(nx);
+                    const yy: u32 = @intCast(ny);
+                    if (uv.texels[@as(usize, yy) * uv.width + xx].triangle != std.math.maxInt(u32)) continue;
+                    const old = stroke.alpha.get(xx, yy)[0];
+                    if (alpha > old) try stroke.alpha.set(xx, yy, .{ alpha, 0, 0, 0 });
+                };
+            }
+        };
     }
     pub fn commit(self: *Session) !void {
         const stroke = self.active orelse return error.NoStroke;
@@ -350,13 +460,12 @@ pub const Session = struct {
         self.redo_stack.clearRetainingCapacity();
         self.undo_stack.appendAssumeCapacity(self.document);
         self.document = next;
+        self.managed_channels |= @as(u32, 1) << @intCast(ci);
+        self.dirty_channels |= @as(u32, 1) << @intCast(ci);
         for (0..stroke.alpha.tiles_y) |ty| for (0..stroke.alpha.tiles_x) |tx| {
             if (stroke.alpha.tile(@intCast(tx), @intCast(ty)) != null) self.dirty[ty * stroke.alpha.tiles_x + tx] = true;
         };
-        while (self.undo_stack.items.len > self.max_history) {
-            var old = self.undo_stack.orderedRemove(0);
-            old.deinit();
-        }
+        self.trimHistory();
         self.cancel();
     }
     pub fn undo(self: *Session) !bool {
@@ -365,6 +474,7 @@ pub const Session = struct {
         try self.redo_stack.ensureUnusedCapacity(self.allocator, 1);
         self.redo_stack.appendAssumeCapacity(self.document);
         self.document = self.undo_stack.pop().?;
+        self.dirty_channels |= self.managed_channels;
         @memset(self.dirty, true);
         return true;
     }
@@ -374,11 +484,46 @@ pub const Session = struct {
         try self.undo_stack.ensureUnusedCapacity(self.allocator, 1);
         self.undo_stack.appendAssumeCapacity(self.document);
         self.document = self.redo_stack.pop().?;
+        self.dirty_channels |= self.managed_channels;
         @memset(self.dirty, true);
         return true;
     }
     pub fn clearDirty(self: *Session) void {
         @memset(self.dirty, false);
+        self.dirty_channels = 0;
+    }
+    pub fn importBase(self: *Session, rgba: []const [4]u16) !void {
+        if (self.active != null or self.document.layers.items.len != 0 or rgba.len != @as(u64, self.document.width) * self.document.height) return error.InvalidImport;
+        var layer: Layer = .{};
+        errdefer layer.deinit();
+        @memcpy(layer.name[0..4], "Base");
+        var color = try tex.Image.init(self.allocator, self.document.width, self.document.height, 4);
+        errdefer color.deinit();
+        var opacity = try tex.Image.init(self.allocator, self.document.width, self.document.height, 2);
+        errdefer opacity.deinit();
+        for (0..color.tiles_y) |ty| for (0..color.tiles_x) |tx| {
+            const ct = try color.tileMut(@intCast(tx), @intCast(ty), .{ 0, 0, 0, 0 });
+            const ot = try opacity.tileMut(@intCast(tx), @intCast(ty), .{ 0, 0, 0, 0 });
+            for (0..64) |dy| for (0..64) |dx| {
+                const x = tx * 64 + dx;
+                const y = ty * 64 + dy;
+                if (x >= color.width or y >= color.height) continue;
+                const value = rgba[y * color.width + x];
+                const i = dy * 64 + dx;
+                @memcpy(ct[i * 4 ..][0..3], value[0..3]);
+                ct[i * 4 + 3] = 65535;
+                ot[i * 2] = value[3];
+                ot[i * 2 + 1] = 65535;
+            };
+        };
+        try self.document.layers.ensureUnusedCapacity(self.allocator, 1);
+        layer.pixels[@intFromEnum(Channel.base_color)] = color;
+        layer.pixels[@intFromEnum(Channel.opacity)] = opacity;
+        layer.enabled = (@as(u32, 1) << @intFromEnum(Channel.base_color)) | (@as(u32, 1) << @intFromEnum(Channel.opacity));
+        self.document.layers.appendAssumeCapacity(layer);
+        self.managed_channels |= layer.enabled;
+        self.dirty_channels |= layer.enabled;
+        @memset(self.dirty, true);
     }
 };
 pub fn noise(x: u32, y: u32, seed: u32) f32 {
@@ -400,4 +545,27 @@ fn transactionFailure(a: std.mem.Allocator) !void {
 }
 test "paint commit undo redo allocation failures" {
     try std.testing.checkAllAllocationFailures(std.testing.allocator, transactionFailure, .{});
+}
+
+test "one world stamp paints both UV islands and only dirty tiles" {
+    const a = std.testing.allocator;
+    const mesh: g.Mesh = .{ .positions = &.{ .{ 0, 0, 0 }, .{ 1, 0, 0 }, .{ 0, 1, 0 }, .{ 0, 0, 0 }, .{ 1, 0, 0 }, .{ 0, 1, 0 } }, .normals = &.{ .{ 0, 0, 1 }, .{ 0, 0, 1 }, .{ 0, 0, 1 }, .{ 0, 0, 1 }, .{ 0, 0, 1 }, .{ 0, 0, 1 } }, .uvs = &.{ .{ 0, 0 }, .{ 0.4, 0 }, .{ 0, 0.4 }, .{ 0.6, 0.6 }, .{ 1, 0.6 }, .{ 0.6, 1 } }, .indices = &.{ 0, 1, 2, 3, 4, 5 } };
+    var bvh = try g.Bvh.init(a, mesh);
+    defer bvh.deinit();
+    var uv = try g.UvBuffer.init(a, mesh, 256, 256, null);
+    defer uv.deinit();
+    var session = try Session.init(a, 256, 256);
+    defer session.deinit();
+    const layer = try session.addLayer("surface detail", .paint);
+    session.clearDirty();
+    try session.begin(layer, .base_color, .{ 1, 0, 0 }, 1, false);
+    try session.stampWorld(mesh, &bvh, uv, .{ 0.2, 0.2, 0 }, .{ 0, 0, 1 }, .{ .radius = 0.1, .hardness = 1 }, .{ 0.2, 0.2, 1 });
+    try session.commit();
+    try std.testing.expect(session.document.pixel(.base_color, 20, 20)[0] > 0.9);
+    try std.testing.expect(session.document.pixel(.base_color, 174, 174)[0] > 0.9);
+    var dirty_count: usize = 0;
+    for (session.dirty) |dirty| {
+        if (dirty) dirty_count += 1;
+    }
+    try std.testing.expect(dirty_count < session.dirty.len);
 }

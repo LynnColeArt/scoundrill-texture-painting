@@ -12,12 +12,65 @@ pub const Mesh = struct {
     pub fn validate(self: Mesh) !void {
         if (self.positions.len == 0 or self.positions.len > 4_000_000 or self.indices.len == 0 or self.indices.len % 3 != 0 or self.indices.len > 12_000_000 or self.normals.len != self.positions.len or self.uvs.len != self.positions.len or (self.materials.len != 0 and self.materials.len != self.indices.len / 3)) return error.InvalidMesh;
         for (self.positions, self.normals, self.uvs) |p, n, uv| if (!m.finite(p) or !m.finite(n) or !std.math.isFinite(uv[0]) or !std.math.isFinite(uv[1])) return error.NonFiniteMesh;
+        for (self.positions) |p| for (p) |v| {
+            if (@abs(v) > 1e12) return error.MeshRange;
+        };
+        for (self.uvs) |uv| for (uv) |v| {
+            if (@abs(v) > 1e6) return error.MeshRange;
+        };
+        if (self.tangents.len != 0 and self.tangents.len != self.positions.len) return error.InvalidMesh;
+        for (self.tangents) |t| for (t) |v| {
+            if (!std.math.isFinite(v)) return error.NonFiniteMesh;
+        };
         for (self.indices) |i| if (i >= self.positions.len) return error.InvalidIndex;
     }
     pub fn triangle(self: Mesh, i: usize) [3]V3 {
         return .{ self.positions[self.indices[i * 3]], self.positions[self.indices[i * 3 + 1]], self.positions[self.indices[i * 3 + 2]] };
     }
 };
+/// UV-derived orthonormal tangents, with corner-angle weighting and handedness.
+pub fn computeTangents(a: std.mem.Allocator, mesh: Mesh) ![]m.V4 {
+    try mesh.validate();
+    const result = try a.alloc(m.V4, mesh.positions.len);
+    errdefer a.free(result);
+    @memset(result, .{ 0, 0, 0, 1 });
+    const bitangents = try a.alloc(V3, mesh.positions.len);
+    defer a.free(bitangents);
+    @memset(bitangents, .{ 0, 0, 0 });
+    for (0..mesh.indices.len / 3) |ti| {
+        const ids = mesh.indices[ti * 3 ..][0..3];
+        const p = mesh.triangle(ti);
+        const a0 = mesh.uvs[ids[0]];
+        const a1 = mesh.uvs[ids[1]];
+        const a2 = mesh.uvs[ids[2]];
+        const du1 = a1[0] - a0[0];
+        const dv1 = a1[1] - a0[1];
+        const du2 = a2[0] - a0[0];
+        const dv2 = a2[1] - a0[1];
+        const det = du1 * dv2 - du2 * dv1;
+        if (@abs(det) < 1e-20) continue;
+        const e1 = m.sub(p[1], p[0]);
+        const e2 = m.sub(p[2], p[0]);
+        const t = m.norm(m.scale(m.sub(m.scale(e1, dv2), m.scale(e2, dv1)), 1 / det));
+        const b = m.norm(m.scale(m.sub(m.scale(e2, du1), m.scale(e1, du2)), 1 / det));
+        for (ids, 0..) |id, k| {
+            const left = m.norm(m.sub(p[(k + 1) % 3], p[k]));
+            const right = m.norm(m.sub(p[(k + 2) % 3], p[k]));
+            const angle = std.math.acos(std.math.clamp(m.dot(left, right), -1, 1));
+            for (0..3) |c| {
+                result[id][c] += t[c] * angle;
+                bitangents[id][c] += b[c] * angle;
+            }
+        }
+    }
+    for (result, mesh.normals, bitangents) |*t, n0, b| {
+        const n = m.norm(n0);
+        const sum: V3 = t[0..3].*;
+        const tangent = m.norm(m.sub(sum, m.scale(n, m.dot(n, sum))));
+        t.* = .{ tangent[0], tangent[1], tangent[2], if (m.dot(m.cross(n, tangent), b) < 0) -1 else 1 };
+    }
+    return result;
+}
 pub const Bounds = struct {
     lo: V3 = .{ std.math.inf(f32), std.math.inf(f32), std.math.inf(f32) },
     hi: V3 = .{ -std.math.inf(f32), -std.math.inf(f32), -std.math.inf(f32) },
@@ -60,40 +113,109 @@ pub const Bvh = struct {
         for (order, 0..) |*o, i| o.* = @intCast(i);
         var self: Bvh = .{ .allocator = a, .nodes = nodes, .order = order };
         var used: usize = 1;
-        self.build(mesh, 0, 0, count, &used, 0);
+        const centers = try a.alloc(V3, count);
+        defer a.free(centers);
+        const bounds = try a.alloc(Bounds, count);
+        defer a.free(bounds);
+        for (centers, bounds, 0..) |*center, *bound, i| {
+            const t = mesh.triangle(i);
+            center.* = m.scale(m.add(m.add(t[0], t[1]), t[2]), 1.0 / 3.0);
+            bound.* = .{};
+            for (t) |v| bound.grow(v);
+        }
+        self.build(centers, bounds, 0, 0, count, &used, 0);
         return self;
     }
-    fn build(self: *Bvh, mesh: Mesh, ni: usize, start: usize, count: usize, used: *usize, depth: u32) void {
+    fn area(bounds: Bounds) f32 {
+        const d = m.sub(bounds.hi, bounds.lo);
+        return @max(d[0], 0) * @max(d[1], 0) + @max(d[1], 0) * @max(d[2], 0) + @max(d[2], 0) * @max(d[0], 0);
+    }
+    fn binOf(center: V3, lo: V3, extent: V3, axis: usize) usize {
+        return @intFromFloat(std.math.clamp((center[axis] - lo[axis]) / extent[axis] * 12, 0, 11));
+    }
+    fn build(self: *Bvh, centers: []const V3, bounds: []const Bounds, ni: usize, start: usize, count: usize, used: *usize, depth: u32) void {
         var b: Bounds = .{};
         var cb: Bounds = .{};
         for (self.order[start..][0..count]) |o| {
-            const t = mesh.triangle(o);
-            for (t) |p| b.grow(p);
-            cb.grow(m.scale(m.add(m.add(t[0], t[1]), t[2]), 1.0 / 3.0));
+            b.grow(bounds[o].lo);
+            b.grow(bounds[o].hi);
+            cb.grow(centers[o]);
         }
         self.nodes[ni] = .{ .bounds = b, .first = @intCast(start), .count = @intCast(count) };
         if (count <= 4 or depth >= 48) return;
         const ext = m.sub(cb.hi, cb.lo);
-        var axis: usize = 0;
-        if (ext[1] > ext[axis]) axis = 1;
-        if (ext[2] > ext[axis]) axis = 2;
-        const C = struct {
-            mesh: Mesh,
-            axis: usize,
-            fn less(c: @This(), x: u32, y: u32) bool {
-                const tx = c.mesh.triangle(x);
-                const ty = c.mesh.triangle(y);
-                return tx[0][c.axis] + tx[1][c.axis] + tx[2][c.axis] < ty[0][c.axis] + ty[1][c.axis] + ty[2][c.axis];
-            }
+        const Bin = struct { bounds: Bounds = .{}, count: u32 = 0 };
+        var bins: [3][12]Bin = @splat(@splat(.{}));
+        for (self.order[start..][0..count]) |o| for (0..3) |axis| {
+            if (ext[axis] <= 1e-12) continue;
+            const bin = &bins[axis][binOf(centers[o], cb.lo, ext, axis)];
+            bin.count += 1;
+            bin.bounds.grow(bounds[o].lo);
+            bin.bounds.grow(bounds[o].hi);
         };
-        std.mem.sort(u32, self.order[start..][0..count], C{ .mesh = mesh, .axis = axis }, C.less);
+        var best_axis: usize = 0;
+        var best_split: usize = 0;
+        var best_cost: f32 = std.math.inf(f32);
+        for (0..3) |axis| {
+            if (ext[axis] <= 1e-12) continue;
+            var suffix = bins[axis];
+            var j: usize = 11;
+            while (j > 0) {
+                j -= 1;
+                suffix[j].count += suffix[j + 1].count;
+                if (suffix[j + 1].count > 0) {
+                    suffix[j].bounds.grow(suffix[j + 1].bounds.lo);
+                    suffix[j].bounds.grow(suffix[j + 1].bounds.hi);
+                }
+            }
+            var left: Bin = .{};
+            for (1..12) |split| {
+                const bin = bins[axis][split - 1];
+                left.count += bin.count;
+                if (bin.count > 0) {
+                    left.bounds.grow(bin.bounds.lo);
+                    left.bounds.grow(bin.bounds.hi);
+                }
+                const right = suffix[split];
+                if (left.count == 0 or right.count == 0) continue;
+                const cost = @as(f32, @floatFromInt(left.count)) * area(left.bounds) + @as(f32, @floatFromInt(right.count)) * area(right.bounds);
+                if (cost < best_cost) {
+                    best_cost = cost;
+                    best_axis = axis;
+                    best_split = split;
+                }
+            }
+        }
+        const order = self.order[start..][0..count];
+        var half: usize = 0;
+        if (best_split > 0 and best_cost < @as(f32, @floatFromInt(count)) * area(b)) {
+            for (0..order.len) |i| {
+                if (binOf(centers[order[i]], cb.lo, ext, best_axis) < best_split) {
+                    std.mem.swap(u32, &order[half], &order[i]);
+                    half += 1;
+                }
+            }
+        }
+        if (half == 0 or half == count) {
+            var axis: usize = 0;
+            if (ext[1] > ext[axis]) axis = 1;
+            if (ext[2] > ext[axis]) axis = 2;
+            const C = struct {
+                centers: []const V3,
+                axis: usize,
+                fn less(c: @This(), x: u32, y: u32) bool {
+                    return c.centers[x][c.axis] < c.centers[y][c.axis];
+                }
+            };
+            std.mem.sort(u32, order, C{ .centers = centers, .axis = axis }, C.less);
+            half = count / 2;
+        }
         const left = used.*;
         used.* += 2;
         self.nodes[ni].first = @intCast(left);
         self.nodes[ni].count = 0;
-        const half = count / 2;
-        self.build(mesh, left, start, half, used, depth + 1);
-        self.build(mesh, left + 1, start + half, count - half, used, depth + 1);
+        self.build(centers, bounds, left, start, half, used, depth + 1);
+        self.build(centers, bounds, left + 1, start + half, count - half, used, depth + 1);
     }
     pub fn deinit(self: *Bvh) void {
         self.allocator.free(self.nodes);

@@ -53,3 +53,10 @@ brush/raster/commit conventions, render gpu_trace.rs and the recovered WGSL.
 reference/core-goldens.json identifies the 2592 unchanged Rust blend observations.
 The recording driver is retained in tools/oracle; its Cargo manifest is a path
 template for a separate temporary reference checkout.
+
+Additional source-informed recovery includes binned BVH splitting, UV-derived
+tangent conventions, two-texel stroke padding and the raster environment-BRDF
+fit. Vulkan calls follow the installed Khronos Vulkan headers; Naga's installed
+public API supplies development-only SPIR-V generation. Original shaders remain
+unchanged under shaders/upstream, with generated resource access under
+shaders/generated and the native preview entry points in shaders/preview.wgsl.

@@ -44,7 +44,7 @@ pub const Context = struct {
             var families: [64]c.VkQueueFamilyProperties = undefined;
             c.vkGetPhysicalDeviceQueueFamilyProperties(p, &n, &families);
             for (families[0..n], 0..) |f, i| {
-                if (f.queueFlags & c.VK_QUEUE_COMPUTE_BIT == 0) continue;
+                if (f.queueFlags & (c.VK_QUEUE_COMPUTE_BIT | c.VK_QUEUE_GRAPHICS_BIT) != (c.VK_QUEUE_COMPUTE_BIT | c.VK_QUEUE_GRAPHICS_BIT)) continue;
                 const s: u32 = if (prop.deviceType == c.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) 3 else if (prop.deviceType == c.VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) 2 else 1;
                 if (s > score) {
                     self.physical = p;
@@ -133,7 +133,7 @@ pub const Buffer = struct {
         return self;
     }
     pub fn deinit(self: *Buffer, ctx: *Context) void {
-        if (self.memory != null) c.vkUnmapMemory(ctx.device, self.memory);
+        if (self.bytes.len > 0) c.vkUnmapMemory(ctx.device, self.memory);
         if (self.handle != null) c.vkDestroyBuffer(ctx.device, self.handle, null);
         if (self.memory != null) c.vkFreeMemory(ctx.device, self.memory, null);
         self.* = .{};

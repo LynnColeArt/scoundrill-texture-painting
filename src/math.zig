@@ -48,6 +48,31 @@ pub fn u8of(x: f32) u8 {
     return if (std.math.isFinite(x)) @intFromFloat(@floor(std.math.clamp(x, 0, 1) * 255 + 0.5)) else 0;
 }
 pub const Ray = struct { origin: V3, dir: V3 };
+pub fn inverse4(matrix: [16]f32) [16]f32 {
+    var rows: [4][8]f64 = undefined;
+    for (0..4) |i| for (0..8) |j| {
+        rows[i][j] = if (j < 4) matrix[j * 4 + i] else if (j - 4 == i) 1 else 0;
+    };
+    for (0..4) |col| {
+        var pivot = col;
+        for (col + 1..4) |i| {
+            if (@abs(rows[i][col]) > @abs(rows[pivot][col])) pivot = i;
+        }
+        std.mem.swap([8]f64, &rows[col], &rows[pivot]);
+        const divisor = rows[col][col];
+        for (&rows[col]) |*v| v.* /= divisor;
+        for (0..4) |i| {
+            if (i == col) continue;
+            const factor = rows[i][col];
+            for (0..8) |j| rows[i][j] -= factor * rows[col][j];
+        }
+    }
+    var result: [16]f32 = undefined;
+    for (0..4) |i| for (0..4) |j| {
+        result[j * 4 + i] = @floatCast(rows[i][j + 4]);
+    };
+    return result;
+}
 pub const Camera = struct {
     target: V3 = .{ 0, 0, 0 },
     yaw: f32 = 0.7,
@@ -77,7 +102,14 @@ pub const Camera = struct {
         return .{ r, cross(r, f), f };
     }
     pub fn validate(self: Camera) !void {
-        if (!finite(self.target) or !std.math.isFinite(self.yaw) or !std.math.isFinite(self.pitch) or !std.math.isFinite(self.distance) or self.distance <= 0 or !std.math.isFinite(self.fov) or self.fov < 5 or self.fov > 150 or !std.math.isFinite(self.scene_radius) or self.scene_radius <= 0) return error.InvalidCamera;
+        if (!finite(self.target) or !std.math.isFinite(self.yaw) or !std.math.isFinite(self.pitch) or !std.math.isFinite(self.distance) or self.distance <= 0 or self.distance > 1e12 or !std.math.isFinite(self.fov) or self.fov < 5 or self.fov > 150 or !std.math.isFinite(self.scene_radius) or self.scene_radius <= 0 or self.scene_radius > 1e12 or self.distance / self.scene_radius > 1e5) return error.InvalidCamera;
+        for (self.target) |v| if (@abs(v) > 1e12) return error.InvalidCamera;
+        var l2: f32 = 0;
+        for (self.orient) |v| {
+            if (!std.math.isFinite(v)) return error.InvalidCamera;
+            l2 += v * v;
+        }
+        if (self.free and @abs(l2 - 1) > 0.01) return error.InvalidCamera;
     }
     pub fn inverseVP(self: Camera, aspect: f32) [16]f32 {
         const b = self.basis();
