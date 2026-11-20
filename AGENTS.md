@@ -2,6 +2,9 @@
 
 Read docs/BRIEF.md, docs/ARCHITECTURE.md, docs/PROVENANCE.md and docs/ROADMAP.md
 before implementation. Target Zig 0.16.0 initially, matching Scoundrill.
+Use docs/RENDERER-BEHAVIOR.md and its pinned Movie Maker evidence as the initial
+renderer behavior contract. Extend coverage where missing rather than restarting
+the already completed feasibility experiments.
 
 Build reusable libraries. Scoundrill integration, UI, file dialogs and application
 state belong in adapters. Keep rendering independent of painting history, command

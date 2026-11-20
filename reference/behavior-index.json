@@ -1,0 +1,320 @@
+{
+  "indexed_on": "2026-11-20",
+  "reference_root": "/home/lynn/projects/scoundrill",
+  "scoundrill_commit": "86940697f3f9ace547c4309a42df6aa596898be6",
+  "scope": "Behavior-documentation map, harness and fixture index, independent comparison results. Indexing is not execution; no artifacts copied or recaptured.",
+  "files": [
+    {
+      "path": "docs/CYCLES-BRIDGE.md",
+      "bytes": 9709,
+      "sha256": "96f060525474b3ab144b720a57580f93f2bffa5c44c7d8550f0d6cd51f4157b1",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "docs/TEXTURECRAFT-RENDERER.md",
+      "bytes": 5346,
+      "sha256": "337a8d3bfea78e869e186b8013279fcebed3c0db603d96db49454438b7d984a2",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/godot_forward_plus/README.md",
+      "bytes": 9843,
+      "sha256": "2a5c187b12bf8ef009c831e42c39299fa8e35e0cbf56a23a67beb9b4f93b9b44",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/godot_forward_plus/probe.gd",
+      "bytes": 10422,
+      "sha256": "61cf8caeeb85eb1d04768af90fb061672fb971ca791d81f6fdd1813b882b2637",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/godot_forward_plus/results/checks.json",
+      "bytes": 891,
+      "sha256": "611b264c3358b8921d90022c85daa678659bcc1f7b43bb9450aa7aad5b4e8bb9",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/godot_forward_plus/results/measurements.json",
+      "bytes": 105857,
+      "sha256": "b75dad704e5d03945590a8312b35ec88cb0944f91a00fba27752726c203a98be",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/godot_forward_plus/results/provenance.json",
+      "bytes": 25382,
+      "sha256": "efd06d3f8731dc4edc052e4afead9b3cc031873b7137e53c1f6f6fef1b542dfb",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/godot_forward_plus/timing_probe.gd",
+      "bytes": 1765,
+      "sha256": "1c5514e85a13743b18e5239de0ce7e1a8722e42daa61b6adecf360b2522d7416",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/README.md",
+      "bytes": 9079,
+      "sha256": "8d0a453bba66d490d789ab3a1a9d07a7f91f04c3250680a1a7e40444d3be1663",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/benchmark.py",
+      "bytes": 5139,
+      "sha256": "340edf4823a7651e91ab704bf85e26d8ce1979be83d5bed3fe67818f557e4fd7",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/build_probe.py",
+      "bytes": 2011,
+      "sha256": "ad2ff37b410770bd38aa6ed60a2bba4e9146a69d43d56a4841666fec2f3bbe86",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/cycles_control.py",
+      "bytes": 3152,
+      "sha256": "0715d68cc2fdcfe4292ba043f9d575c89c6812faca1b742918c93f0d070c507a",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/diagnostics.py",
+      "bytes": 2017,
+      "sha256": "597806fa4745902aae9161c32a1c04079b5b31eed2223480921d237d1ef2f32b",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/harness/Cargo.lock",
+      "bytes": 37913,
+      "sha256": "82e2d4d0e981c577cf28a31fdb1b6e5094c749e7d6729cf1a0ef48f9295581c5",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/harness/Cargo.toml.in",
+      "bytes": 549,
+      "sha256": "cf0252667d3420aee2ae7ea9cc3240d73f9d486ceb674ad6f9aea4f40537c47b",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/harness/src/main.rs",
+      "bytes": 10367,
+      "sha256": "679fb845b9fd49e464fe29e5f1968d02e8cf6626a30cc97acaa6c8f2671ce0c1",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/prepare.py",
+      "bytes": 8243,
+      "sha256": "ce12f7d4cddea57a50a83abda6e24ee089c22a0eaf70936edd534966b5992bf4",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/README.md",
+      "bytes": 7596,
+      "sha256": "214445b94076a0bfbf64becf1779970b735d7fe56f7845e0ba710a3a2e11b6db",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/build.py",
+      "bytes": 1965,
+      "sha256": "3f0aa586816afe06ee0438567d5bc4317ae9c51518ced0a4ddd1b721df359172",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/collect.py",
+      "bytes": 4403,
+      "sha256": "3f93237454fa45d2948ba02bb2f5a63ccc11b6eb73e8664c6d3d96c540b86581",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/README.md",
+      "bytes": 7462,
+      "sha256": "1d19d81dc2793dd5fa27c73fe7e501493c5864f16125c46c105c25cc60ab6a25",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/collect_results.py",
+      "bytes": 5373,
+      "sha256": "55a7a24f0d713da394d876f243c01918ae2c94257b811daed6e3f28480bd8ab0",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/checks.json",
+      "bytes": 1889,
+      "sha256": "7ace7b3f467878f31a85dfd908b5d614317a66ad15285cf0ace108931b0ea3aa",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/comparison.png",
+      "bytes": 422836,
+      "sha256": "a4cca9c9beab9f99a0c1d856d3a6fe999947685a53cced4982b753ba6b8b05f1",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/lamp-left.png",
+      "bytes": 189242,
+      "sha256": "8f66cdef8e3166c76c2b5b25eee94af51377c41ac044a45d337bc4affa1d4ff1",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/lamp-off.png",
+      "bytes": 2759,
+      "sha256": "7efdbbfeb59ec43fc9584c5027bfb5a906d7980f68ffa20f617083617c6cf574",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/lamp-right-4k.png",
+      "bytes": 818863,
+      "sha256": "51f1766568ca96decfdfca4c1c3a7e65a0e13826082ae021153aa2016cbbcaf9",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/lamp-right-linear.exr",
+      "bytes": 10054717,
+      "sha256": "9066f351449b53b9045ab3ea227f9d6ee814ef15a88752ec832cf076384a8117",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/lamp-right.png",
+      "bytes": 165538,
+      "sha256": "3a2f829a1b8369d1523bcfd7b62cd7e48c6fafd898353d302c8d606c907b95ac",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/measurements.json",
+      "bytes": 40426,
+      "sha256": "0e00162497f01a4944624e720fe35dbff3045048e548a43684c9c81724f86e0a",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/provenance.json",
+      "bytes": 13815,
+      "sha256": "4c284779e9c3b4c23d00070608edc74f05f6c64d10ac1792c69d48955ca05c2a",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/sun-closed.png",
+      "bytes": 2759,
+      "sha256": "7efdbbfeb59ec43fc9584c5027bfb5a906d7980f68ffa20f617083617c6cf574",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/sun-open-4k.png",
+      "bytes": 864395,
+      "sha256": "0b7e187e0cd4184d36d7b35d8c628f5edc6849e6232af88c8b9d24b3e67d10ae",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/sun-open.png",
+      "bytes": 184675,
+      "sha256": "d8474184aa52f29889d10838810c3c147428bc00d85b29dd337d5a2a75f8f11b",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/sun-sweep.gif",
+      "bytes": 1019382,
+      "sha256": "eb34614c7f2c3a212fd41f77b0212690d1e3f2930853baa132941e3e262f937a",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/sun-unshadowed.png",
+      "bytes": 179386,
+      "sha256": "7b604fb71f8d7e7dcde00e7498660b5e36da42bd49b684a7f8d43d8db72ac0af",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/window-closed.png",
+      "bytes": 2759,
+      "sha256": "7efdbbfeb59ec43fc9584c5027bfb5a906d7980f68ffa20f617083617c6cf574",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/results/window-open.png",
+      "bytes": 120008,
+      "sha256": "de29fd057e070b74b2248ff3ec75a1c77a189211d7b8f0a4739cb1de203ef179",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/run_cases.py",
+      "bytes": 2372,
+      "sha256": "334f4a351194cdc9221dbc33d78e9696add379a7653f1bde2303abbd33e375a0",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/verify_compare.py",
+      "bytes": 6227,
+      "sha256": "6c9508ef84f668a59e22c890964281efc494b283e63a3a7f01f02257b067aae3",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/cycles/worker.py",
+      "bytes": 13598,
+      "sha256": "6ab4b93abec2a27dd2a81cd0d0f660643ffdc9634f644ac6aeddd0eebb2a951b",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/harness/src/main.rs",
+      "bytes": 13110,
+      "sha256": "081b9ac91df67b33cb3c51f7e92eaa05ef2be889db878beb549fabbded200a9c",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/prepare_room.py",
+      "bytes": 5876,
+      "sha256": "460f8e612b4b698db475c30608e80266587ffd87be88a13d9da979565df9ba02",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/run_room.py",
+      "bytes": 2002,
+      "sha256": "bd8c9f591f4976d46642080290951bbc7bb1fd5a00fc6826df59d2b22c80347c",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/room/verify_room.py",
+      "bytes": 4489,
+      "sha256": "3b3178b3b2d98b7712a23b5edd5477dfa92b93f1c1d5d27eb2311791f0712aca",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "experiments/texturecraft/verify_experiment.py",
+      "bytes": 5911,
+      "sha256": "f0ddc255b7ed622ad707dd75cbfdb387451ca482617779469b569153098f71e5",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "modern/fixtures/LICENSE.CC0.txt",
+      "bytes": 6962,
+      "sha256": "f6089cba01cb570a24712b41ab8a586ccd3cc5ef53dc266ca50b95c288956d2c",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "modern/fixtures/actor-provenance.json",
+      "bytes": 1447,
+      "sha256": "bbbb1acbb771ebcf59f388f48956cd305664e95071635209295f3930fc3b69b0",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "modern/fixtures/studio-scene.json",
+      "bytes": 1733,
+      "sha256": "c779da862f96a65ce1e890ab33d6d464c0ebe25c5e952e31a30d3e97cb6d469d",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "modern/reference/README.md",
+      "bytes": 1810,
+      "sha256": "4e44ff7bc5c48426d55eb47757f6701c46800fe99c9b0544e257a819889c9cfd",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "modern/reference/capture.json",
+      "bytes": 9165,
+      "sha256": "b54a7d5032b5bdad0339e7b9f69b62b72ac1a282b285c14d479e4c875a2ba701",
+      "matches_recorded_commit": true
+    },
+    {
+      "path": "modern/reference/snapshot.json.gz",
+      "bytes": 2029153,
+      "sha256": "9b0729037c87dec63611329f208ca8ab81849db71ff7be396e04f45605000ab3",
+      "matches_recorded_commit": true
+    }
+  ]
+}

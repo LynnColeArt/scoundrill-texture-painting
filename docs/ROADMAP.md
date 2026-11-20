@@ -6,6 +6,7 @@
 - [x] Identify the tested upstream revision and direct library dependencies.
 - [x] Index the existing actor and room evidence without recapturing it.
 - [x] Define reuse boundaries, application workflows and performance work.
+- [x] Map Movie Maker's existing renderer behavior records and executable checks.
 
 ## Recovery and implementation
 

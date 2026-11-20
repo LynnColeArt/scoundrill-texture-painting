@@ -13,6 +13,11 @@ or an animated-scene measurement.
 
 Actor and room evidence is indexed in reference/baseline-index.json.
 Preserve these observations; capture dedicated benchmark runs separately.
+The [behavior map](RENDERER-BEHAVIOR.md) links the existing executable checks and
+quality comparisons to port acceptance. The Godot study also measures navigation
+separately from per-frame readback; reuse that measurement distinction, without
+attributing Godot's times to hamudi-1. Declare the chosen interactive lighting
+profile and its relationship to the traced reference before default cutover.
 
 ## Measurement matrix
 

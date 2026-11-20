@@ -32,6 +32,12 @@ sibling checkout; it does not copy images or make this project self-contained.
 The index also reports whether each recorded working-tree file matches that
 commit. Preserve original source manifests, fixtures, observations and images.
 
+Following the owner's direction to reuse Movie Maker's extensive behavior
+documentation, docs/RENDERER-BEHAVIOR.md maps its actor and room verifiers,
+independent Cycles comparisons, scene-transfer contract and Godot timing study.
+reference/behavior-index.json separately pins the consulted harnesses, reports,
+fixtures and comparison artifacts. The original baseline index is unchanged.
+
 The earlier experiment's Rust executables are development oracles. They are
 not Zig implementations. No production Rust linkage, renderer replacement,
 new rendering run or speedup is asserted by this repository foundation.

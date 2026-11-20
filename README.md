@@ -15,6 +15,7 @@ this repository yet. Scoundrill has not switched renderers.
 
 - [Product and acceptance brief](docs/BRIEF.md)
 - [Library boundaries and upstream inventory](docs/ARCHITECTURE.md)
+- [Movie Maker renderer behavior and acceptance map](docs/RENDERER-BEHAVIOR.md)
 - [Performance plan](docs/PERFORMANCE.md)
 - [Implementation sequence](docs/ROADMAP.md)
 - [Reference provenance](docs/PROVENANCE.md)
