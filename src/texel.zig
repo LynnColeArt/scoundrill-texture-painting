@@ -110,6 +110,16 @@ pub const Image = struct {
         }
         return n;
     }
+    /// Discard zero-only scratch tiles while preserving any shared snapshot.
+    pub fn pruneZeroTiles(self: *Image) !void {
+        try self.unique();
+        for (self.table.slots) |*slot| if (slot.*) |entry| {
+            if (std.mem.allEqual(u16, entry.data, 0)) {
+                dropTile(self.allocator, entry);
+                slot.* = null;
+            }
+        };
+    }
 };
 pub const Padding = struct {
     allocator: std.mem.Allocator,

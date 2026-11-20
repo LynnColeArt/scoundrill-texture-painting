@@ -6,12 +6,14 @@ pub const Owned = struct {
     allocator: std.mem.Allocator,
     mesh: g.Mesh,
     minimum_resolution: [256]u32,
+    vertex_sources: []u32,
     pub fn deinit(self: *Owned) void {
         self.allocator.free(self.mesh.positions);
         self.allocator.free(self.mesh.normals);
         self.allocator.free(self.mesh.uvs);
         self.allocator.free(self.mesh.indices);
         self.allocator.free(self.mesh.materials);
+        self.allocator.free(self.vertex_sources);
         self.* = undefined;
     }
 };
@@ -43,6 +45,9 @@ pub fn missing(a: std.mem.Allocator, mesh: g.Mesh) !Owned {
     if (mesh.positions.len + extra > 4_000_000) return error.MeshBudget;
     const p = try a.alloc(m.V3, mesh.positions.len + extra);
     errdefer a.free(p);
+    const sources = try a.alloc(u32, p.len);
+    errdefer a.free(sources);
+    for (sources[0..mesh.positions.len], 0..) |*source, i| source.* = @intCast(i);
     @memcpy(p[0..mesh.positions.len], mesh.positions);
     const n = try a.alloc(m.V3, p.len);
     errdefer a.free(n);
@@ -70,13 +75,14 @@ pub fn missing(a: std.mem.Allocator, mesh: g.Mesh) !Owned {
         for (0..3) |k| {
             const source = mesh.indices[i * 3 + k];
             p[next] = mesh.positions[source];
+            sources[next] = source;
             n[next] = mesh.normals[source];
             uv[next] = chart[k];
             ids[i * 3 + k] = @intCast(next);
             next += 1;
         }
     }
-    return .{ .allocator = a, .mesh = .{ .positions = p, .normals = n, .uvs = uv, .indices = ids, .materials = mats }, .minimum_resolution = minimum };
+    return .{ .allocator = a, .mesh = .{ .positions = p, .normals = n, .uvs = uv, .indices = ids, .materials = mats }, .minimum_resolution = minimum, .vertex_sources = sources };
 }
 test "missing UV charts preserve geometry and create covered texels" {
     const a = std.testing.allocator;

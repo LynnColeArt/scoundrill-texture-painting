@@ -3,7 +3,7 @@ const lib = @import("texture_painting");
 const m = lib.math;
 const g = lib.geometry;
 const render = @import("hamudi1").renderer;
-const Input = struct { positions: []const m.V3, normals: []const m.V3, uvs: []const m.V2, indices: []const u32, parts: []const struct { material: u32, start: u32, count: u32 }, materials: []const struct { width: u32, height: u32, rgba16: []const u8, metallic: f32 = 0, roughness: f32 = 0.5, emissive: m.V3 = .{ 0, 0, 0 } }, camera: m.Camera, environment: m.V3 = .{ 0.5, 0.5, 0.5 }, exposure: f32 = 1, filmic: bool = false };
+const Input = struct { positions: []const m.V3, normals: []const m.V3, uvs: []const m.V2, indices: []const u32, parts: []const struct { material: u32, start: u32, count: u32 }, materials: []const struct { width: u32, height: u32, rgba16: []const u8, metallic: f32 = 0, roughness: f32 = 0.5, emissive: m.V3 = .{ 0, 0, 0 } }, camera: m.Camera, environment: m.V3 = .{ 0.5, 0.5, 0.5 }, exposure: f32 = 1, filmic: bool = false, environment_preset: ?[]const u8 = null, light: [4]f32 = .{ -0.5, 1, 0.5, 3 }, shadows: bool = true };
 pub fn main(init: std.process.Init) !void {
     const a = init.arena.allocator();
     const args = try init.minimal.args.toSlice(a);
@@ -37,17 +37,18 @@ pub fn main(init: std.process.Init) !void {
         dst.* = .{ .width = src.width, .height = src.height, .rgba = rgba, .metallic = src.metallic, .roughness = src.roughness, .emissive = src.emissive };
     }
     const start = render.gpu.nanoseconds();
-    var r = try render.Renderer.init(a);
+    var r = try render.Renderer.initDevice(a, if (std.mem.eql(u8, args[6], "cpu")) .cpu else .automatic);
     defer r.deinit();
     try r.setMesh(mesh, &bvh);
     try r.setMaterials(mats);
-    try r.setEnvironment(input.environment);
+    if (input.environment_preset) |name| try r.setEnvironmentPreset(try @import("hamudi1").environment.Preset.parse(name), 512) else try r.setEnvironment(input.environment);
     try r.resize(w, h);
     const settings: render.Settings = .{ .exposure = input.exposure, .filmic = input.filmic, .denoise = if (args.len > 7) !std.mem.eql(u8, args[7], "raw") else true };
+    const preview: render.PreviewSettings = .{ .exposure = input.exposure, .filmic = input.filmic, .light = input.light, .shadows = input.shadows };
     const mode = args[6];
     var done: u32 = 0;
     const is_raster = std.mem.eql(u8, mode, "raster");
-    if (!is_raster and !std.mem.eql(u8, mode, "gpu")) return error.InvalidMode;
+    if (!is_raster and !std.mem.eql(u8, mode, "gpu") and !std.mem.eql(u8, mode, "cpu")) return error.InvalidMode;
     while (!is_raster and done < samples) {
         const spp = @min(samples - done, 8);
         try r.pass(input.camera, settings, spp);
@@ -55,23 +56,23 @@ pub fn main(init: std.process.Init) !void {
     }
     var frame_ms: std.ArrayList(f64) = .empty;
     if (is_raster) {
-        _ = try r.preview(input.camera, .{ .exposure = input.exposure, .filmic = input.filmic }, false);
+        _ = try r.preview(input.camera, preview, false);
         for (0..samples) |i| {
             var camera = input.camera;
             camera.yaw += @as(f32, @floatFromInt(i)) * 0.0002;
             const tick = render.gpu.nanoseconds();
-            _ = try r.preview(camera, .{ .exposure = input.exposure, .filmic = input.filmic }, false);
+            _ = try r.preview(camera, preview, false);
             try frame_ms.append(a, @as(f64, @floatFromInt(render.gpu.nanoseconds() - tick)) / 1e6);
         }
     }
-    const rgba = if (is_raster) (try r.preview(input.camera, .{ .exposure = input.exposure, .filmic = input.filmic }, true)).? else try r.pixels(settings);
+    const rgba = if (is_raster) (try r.preview(input.camera, preview, true)).? else try r.pixels(settings);
     var ppm: std.ArrayList(u8) = .empty;
     try ppm.appendSlice(a, try std.fmt.allocPrint(a, "P6\n{d} {d}\n255\n", .{ w, h }));
     for (0..@as(usize, w) * h) |i| try ppm.appendSlice(a, rgba[i * 4 ..][0..3]);
     var file = try std.Io.Dir.cwd().createFile(init.io, args[2], .{ .exclusive = true });
     defer file.close(init.io);
     try file.writeStreamingAll(init.io, ppm.items);
-    const report = try std.json.Stringify.valueAlloc(a, .{ .adapter = r.ctx.name(), .width = w, .height = h, .samples = samples, .seconds = @as(f64, @floatFromInt(render.gpu.nanoseconds() - start)) / 1e9, .stats = r.stats, .warm_frame_ms_without_readback = frame_ms.items }, .{});
+    const report = try std.json.Stringify.valueAlloc(a, .{ .adapter = r.ctx.name(), .width = w, .height = h, .samples = samples, .seconds = @as(f64, @floatFromInt(render.gpu.nanoseconds() - start)) / 1e9, .stats = r.stats, .warm_frame_ms_without_readback = frame_ms.items, .memory = .{ .host_only = render.gpu.config.force_host_buffers, .mapped_local_bytes = r.ctx.mapped_local_bytes, .device_storage_bytes = r.ctx.device_storage_bytes } }, .{});
     const report_path = try std.fmt.allocPrint(a, "{s}.json", .{args[2]});
     try std.Io.Dir.cwd().writeFile(init.io, .{ .sub_path = report_path, .data = report });
 }

@@ -1,7 +1,10 @@
 # Library boundaries
 
-This is an extraction proposal informed by pinned upstream manifests and
-architecture documentation, not an implemented API.
+Two implemented Zig modules expose the recovered systems. `texture_painting`
+owns geometry, sparse images, documents, brushes, history, map generation and
+native IO. It runs without Vulkan or libc. `hamudi1` owns persistent Vulkan
+rendering, HDR environments and an optional dirty-material adapter. C and Python
+consumers exercise both modules independently of any application shell.
 
 ## Upstream inventory
 
@@ -30,7 +33,7 @@ compositing, baking and padding. Preserve that agreement when separating
 libraries. It also describes sparse 64x64 u16 copy-on-write tiles and updates
 limited to dirty tiles. These are existing design properties, not new speedups.
 
-## Proposed dependency direction
+## Dependency direction
 
 Geometry and image/value types sit below the renderer and authoring services.
 Painting uses geometry and surface storage; composition produces material
@@ -40,18 +43,21 @@ The renderer must not depend on painting history, an editor command registry or
 TextureCraft project documents. Split CPU bake contracts from the GPU bake
 implementation to avoid a renderer/baker cycle.
 
-Expected public entry points are a renderer, texture-painting services, geometry
-and image/surface services. Exact Zig module names and package granularity follow
-the first working consumer, rather than creating empty packages now.
+Public entry points and ownership rules are in [API.md](API.md).
+`examples/workflows.zig` is a standalone consumer of both modules. The C ABI
+exports generation-checked scene, renderer and surface handles. Fixed-topology
+deformation refits the BVH and reuses warmed CPU workspace and GPU buffers.
+Constant material channels grow sparse 64×64 GPU pages when edited; camera and
+light changes upload no geometry or material data.
 
-## Decisions requiring implementation evidence
+## Remaining extensions
 
-- Zig GPU backend, platform matrix and shader ownership.
-- Mesh/texture update descriptors, resource handles and generation tracking.
-- Sparse tile representation, undo ownership and worker scheduling.
-- Deforming geometry and BVH updates for Scoundrill actors.
+- Platform matrix beyond the tested Linux NVIDIA and CPU Vulkan drivers.
+- Topology changes for animated meshes require explicit new scene upload.
+- Worker scheduling and concurrent per-document authoring remain host concerns.
 - Persistence/export formats and UV/UDIM feature coverage.
-- Explicit local lights, indoor indirect-light strategy and transparent shadows.
+- Arbitrary analytic local lights and transparent raster shadows. Emissive mesh
+  panels and enclosed indirect light are supported by the recovered tracer.
 
 A Scoundrill adapter translates its scene packet, animation state and editor
 events. The libraries must also support a standalone headless consumer for

@@ -1,0 +1,11 @@
+{
+  "upstream_commit": "52ba5338dc07640704d58122e559355a41147b6a",
+  "cases": 12138,
+  "brush_source_sha256": "c1631a50421a7962645381242501a9d755d0d7f40aef3a28a9e09de4eba49ec8",
+  "noise_source_sha256": "48b2221027eede5a290223de77dba526445012d00187c36b8fb7a4b428bc3b0f",
+  "shim_source_sha256": "50376dc5deeaf4ae7a3909b25474481f1fb9c4d11a7b9e7f4d9f5653b900d9ac",
+  "fixture_sha256": "e474b1b330092ade81927d4bc56656c00a28f3c12cad83a42b07300ce2a614ac",
+  "noise_checksum": "67e814aa2127b333",
+  "noise_observations": 58366,
+  "scope": "Seven unchanged procedural alpha sample functions; 17x17 grid, three hardnesses, two seeds; Rust application type shim only"
+}

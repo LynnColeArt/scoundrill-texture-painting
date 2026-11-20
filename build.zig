@@ -8,6 +8,13 @@ pub fn build(b: *std.Build) void {
     if (!(b.option(bool, "gpu", "Build the Vulkan renderer and C ABI") orelse true)) return;
     const hamudi = b.addModule("hamudi1", .{ .root_source_file = b.path("src/hamudi.zig"), .target = target, .optimize = optimize, .imports = &.{.{ .name = "texture_painting", .module = core }}, .link_libc = true });
     hamudi.linkSystemLibrary("vulkan", .{});
+    const config = b.addOptions();
+    config.addOption(bool, "force_host_buffers", b.option(bool, "host-buffers", "Benchmark host-visible storage instead of device-local storage") orelse false);
+    hamudi.addOptions("hamudi_options", config);
+    const render_tests = b.addTest(.{ .root_module = hamudi });
+    b.step("renderer-test", "Run renderer-side numerical tests").dependOn(&b.addRunArtifact(render_tests).step);
+    const gpu_tests = b.addTest(.{ .root_module = b.createModule(.{ .root_source_file = b.path("src/gpu_tests.zig"), .target = target, .optimize = optimize, .imports = &.{ .{ .name = "texture_painting", .module = core }, .{ .name = "hamudi1", .module = hamudi } }, .link_libc = true }) });
+    b.step("gpu-test", "Exercise persistent Vulkan rendering, deformation and dirty updates").dependOn(&b.addRunArtifact(gpu_tests).step);
     const cli = b.addExecutable(.{ .name = "hamudi", .root_module = b.createModule(.{ .root_source_file = b.path("src/main.zig"), .target = target, .optimize = optimize, .imports = &.{ .{ .name = "texture_painting", .module = core }, .{ .name = "hamudi1", .module = hamudi } }, .link_libc = true }) });
     b.installArtifact(cli);
     const workflows = b.addExecutable(.{ .name = "hamudi-workflows", .root_module = b.createModule(.{ .root_source_file = b.path("examples/workflows.zig"), .target = target, .optimize = optimize, .imports = &.{ .{ .name = "texture_painting", .module = core }, .{ .name = "hamudi1", .module = hamudi } }, .link_libc = true }) });

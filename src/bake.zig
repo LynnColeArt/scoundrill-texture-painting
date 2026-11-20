@@ -4,9 +4,20 @@ const m = @import("math.zig");
 const g = @import("geometry.zig");
 const p = @import("painting.zig");
 pub const Kind = enum { world_normal, position, id, ambient_occlusion, bent_normal, thickness, curvature, height, normal };
-pub const Options = struct { samples: u32 = 32, distance: f32 = 1, epsilon: f32 = 1e-5, cancel: ?*const std.atomic.Value(bool) = null };
+pub const Options = struct {
+    samples: u32 = 32,
+    distance: f32 = 1,
+    epsilon: f32 = 1e-5,
+    cancel: ?*const std.atomic.Value(bool) = null,
+    cancel_word: ?*const std.atomic.Value(u32) = null,
+    fn check(self: Options) !void {
+        if (self.cancel) |flag| if (flag.load(.acquire)) return error.Cancelled;
+        if (self.cancel_word) |flag| if (flag.load(.acquire) != 0) return error.Cancelled;
+    }
+};
 pub fn generate(a: std.mem.Allocator, kind: Kind, mesh: g.Mesh, bvh: *const g.Bvh, uv: g.UvBuffer, options: Options) ![][4]u16 {
     try mesh.validate();
+    if (bvh.order.len == 0) return error.EmptyMesh;
     if (options.samples == 0 or options.samples > 256 or !std.math.isFinite(options.distance) or options.distance <= 0 or !std.math.isFinite(options.epsilon) or options.epsilon <= 0) return error.BakeBudget;
     const output = try a.alloc([4]u16, uv.texels.len);
     errdefer a.free(output);
@@ -14,9 +25,7 @@ pub fn generate(a: std.mem.Allocator, kind: Kind, mesh: g.Mesh, bvh: *const g.Bv
     const bounds = bvh.nodes[0].bounds;
     const extent = m.sub(bounds.hi, bounds.lo);
     for (uv.texels, 0..) |texel, i| {
-        if (i % 1024 == 0) if (options.cancel) |cancel| {
-            if (cancel.load(.acquire)) return error.Cancelled;
-        };
+        if (i % 256 == 0) try options.check();
         if (texel.triangle == std.math.maxInt(u32)) continue;
         const position = g.UvBuffer.position(mesh, texel);
         const normal = g.UvBuffer.normal(mesh, texel);
@@ -45,6 +54,7 @@ pub fn generate(a: std.mem.Allocator, kind: Kind, mesh: g.Mesh, bvh: *const g.Bv
                 var sum: f32 = 0;
                 var bent: m.V3 = .{ 0, 0, 0 };
                 for (0..options.samples) |s| {
+                    if (s % 32 == 0) try options.check();
                     const u = (@as(f32, @floatFromInt(s)) + 0.5) / @as(f32, @floatFromInt(options.samples));
                     const v = @as(f32, @floatFromInt(@bitReverse(@as(u32, @intCast(s))))) / 4294967296;
                     const radius = @sqrt(u);
@@ -66,10 +76,17 @@ pub fn generate(a: std.mem.Allocator, kind: Kind, mesh: g.Mesh, bvh: *const g.Bv
     return output;
 }
 /// High-poly tangent-space normal and signed-distance transfer along a cage normal.
-pub fn transfer(a: std.mem.Allocator, low: g.Mesh, uv: g.UvBuffer, high: g.Mesh, bvh: *const g.Bvh, reach: f32) !struct { normal: [][4]u16, height: []u16 } {
+pub const Transfer = struct { normal: [][4]u16, height: []u16 };
+pub fn transfer(a: std.mem.Allocator, low: g.Mesh, uv: g.UvBuffer, high: g.Mesh, bvh: *const g.Bvh, reach: f32) !Transfer {
+    return transferWithOptions(a, low, uv, high, bvh, .{ .distance = reach });
+}
+pub fn transferWithOptions(a: std.mem.Allocator, low: g.Mesh, uv: g.UvBuffer, high: g.Mesh, bvh: *const g.Bvh, options: Options) !Transfer {
+    const reach = options.distance;
     try low.validate();
     try high.validate();
     if (!std.math.isFinite(reach) or reach <= 0) return error.BakeBudget;
+    const tangents = try g.computeTangents(a, low);
+    defer a.free(tangents);
     const normals = try a.alloc([4]u16, uv.texels.len);
     errdefer a.free(normals);
     @memset(normals, .{ 32768, 32768, 65535, 0 });
@@ -77,13 +94,17 @@ pub fn transfer(a: std.mem.Allocator, low: g.Mesh, uv: g.UvBuffer, high: g.Mesh,
     errdefer a.free(heights);
     @memset(heights, 32768);
     for (uv.texels, 0..) |texel, i| {
+        if (i % 256 == 0) try options.check();
         if (texel.triangle == std.math.maxInt(u32)) continue;
         const pos = g.UvBuffer.position(low, texel);
         const n = g.UvBuffer.normal(low, texel);
         if (bvh.cast(high, .{ .origin = m.add(pos, m.scale(n, reach)), .dir = m.scale(n, -1) }, reach * 2)) |hit| {
             const hn = g.UvBuffer.normal(high, .{ .triangle = hit.triangle, .bary = hit.bary });
-            const tangent = m.norm(m.cross(if (@abs(n[1]) < 0.9) m.V3{ 0, 1, 0 } else m.V3{ 1, 0, 0 }, n));
-            const bitangent = m.cross(n, tangent);
+            const ids = low.indices[texel.triangle * 3 ..][0..3];
+            var weighted: m.V3 = .{ 0, 0, 0 };
+            for (ids, texel.bary) |id, weight| weighted = m.add(weighted, m.scale(tangents[id][0..3].*, weight));
+            const tangent = m.norm(m.sub(weighted, m.scale(n, m.dot(n, weighted))));
+            const bitangent = m.scale(m.cross(n, tangent), tangents[ids[0]][3]);
             normals[i] = .{ m.u16of(m.dot(hn, tangent) * 0.5 + 0.5), m.u16of(m.dot(hn, bitangent) * 0.5 + 0.5), m.u16of(m.dot(hn, n) * 0.5 + 0.5), 65535 };
             heights[i] = m.u16of((reach - hit.distance) / (2 * reach) + 0.5);
         }
@@ -102,4 +123,27 @@ test "plane AO, world normals, and cancellation" {
     try std.testing.expectEqual(@as(u16, 65535), ao[0][0]);
     var cancel = std.atomic.Value(bool).init(true);
     try std.testing.expectError(error.Cancelled, generate(a, .position, mesh, &bvh, uv, .{ .cancel = &cancel }));
+}
+test "high poly normals follow the low mesh UV tangent basis" {
+    const a = std.testing.allocator;
+    const low: g.Mesh = .{ .positions = &.{ .{ 0, 0, 0 }, .{ 1, 0, 0 }, .{ 0, 1, 0 } }, .normals = &.{ .{ 0, 0, 1 }, .{ 0, 0, 1 }, .{ 0, 0, 1 } }, .uvs = &.{ .{ 1, 0 }, .{ 1, 1 }, .{ 0, 0 } }, .indices = &.{ 0, 1, 2 } };
+    var high = low;
+    high.positions = &.{ .{ 0, 0, 0.1 }, .{ 1, 0, 0.1 }, .{ 0, 1, 0.1 } };
+    high.normals = &.{ .{ 0.6, 0, 0.8 }, .{ 0.6, 0, 0.8 }, .{ 0.6, 0, 0.8 } };
+    var bvh = try g.Bvh.init(a, high);
+    defer bvh.deinit();
+    var uv = try g.UvBuffer.init(a, low, 8, 8, null);
+    defer uv.deinit();
+    const output = try transfer(a, low, uv, high, &bvh, 1);
+    defer a.free(output.normal);
+    defer a.free(output.height);
+    var checked: usize = 0;
+    for (output.normal) |pixel| if (pixel[3] != 0) {
+        // U points along -Y, V along +X on this rotated chart.
+        try std.testing.expect(@abs(@as(i32, pixel[0]) - 32768) < 2);
+        try std.testing.expect(@abs(@as(i32, pixel[1]) - 52428) < 2);
+        try std.testing.expect(@abs(@as(i32, pixel[2]) - 58982) < 2);
+        checked += 1;
+    };
+    try std.testing.expect(checked > 0);
 }

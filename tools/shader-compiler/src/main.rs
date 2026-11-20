@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let trace = format!("{rays}\n{trace}");
     let preview = format!("{trace}\n{}", fs::read_to_string(root.join("shaders/preview.wgsl"))?);
     fs::create_dir_all(root.join("src/spirv"))?;
-    for (name, source, stage) in [("trace_main", &trace, naga::ShaderStage::Compute), ("denoise_init", &post, naga::ShaderStage::Compute), ("denoise_step", &post, naga::ShaderStage::Compute), ("resolve", &post, naga::ShaderStage::Compute), ("preview_vs", &preview, naga::ShaderStage::Vertex), ("preview_fs", &preview, naga::ShaderStage::Fragment)] {
+    for (name, source, stage) in [("trace_main", &trace, naga::ShaderStage::Compute), ("denoise_init", &post, naga::ShaderStage::Compute), ("denoise_step", &post, naga::ShaderStage::Compute), ("resolve", &post, naga::ShaderStage::Compute), ("preview_vs", &preview, naga::ShaderStage::Vertex), ("preview_fs", &preview, naga::ShaderStage::Fragment), ("background_vs", &preview, naga::ShaderStage::Vertex), ("background_fs", &preview, naga::ShaderStage::Fragment)] {
         let module = naga::front::wgsl::parse_str(source).map_err(|e| e.emit_to_string(source))?;
         let info = naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::all()).validate(&module)?;
         let options = naga::back::spv::Options { lang_version: (1, 3), ..Default::default() };

@@ -1,5 +1,6 @@
 //! Native Vulkan ownership and compute dispatch. The caller serializes access.
 const std = @import("std");
+pub const config = @import("hamudi_options");
 pub const c = @cImport({
     @cInclude("vulkan/vulkan.h");
     @cInclude("time.h");
@@ -12,6 +13,7 @@ pub fn check(result: c.VkResult) Error!void {
     }
 }
 pub const Context = struct {
+    pub const Device = enum { automatic, hardware, cpu };
     allocator: std.mem.Allocator,
     instance: c.VkInstance = null,
     physical: c.VkPhysicalDevice = null,
@@ -22,7 +24,12 @@ pub const Context = struct {
     fence: c.VkFence = null,
     memory: c.VkPhysicalDeviceMemoryProperties = undefined,
     properties: c.VkPhysicalDeviceProperties = undefined,
+    mapped_local_bytes: usize = 0,
+    device_storage_bytes: usize = 0,
     pub fn init(a: std.mem.Allocator) !Context {
+        return initDevice(a, .automatic);
+    }
+    pub fn initDevice(a: std.mem.Allocator, preference: Device) !Context {
         var self: Context = .{ .allocator = a };
         errdefer self.deinit();
         const app: c.VkApplicationInfo = .{ .sType = c.VK_STRUCTURE_TYPE_APPLICATION_INFO, .pApplicationName = "hamudi-1", .applicationVersion = 1, .pEngineName = "hamudi-1", .apiVersion = c.VK_API_VERSION_1_1 };
@@ -38,6 +45,8 @@ pub const Context = struct {
         for (devices[0..count]) |p| {
             var prop: c.VkPhysicalDeviceProperties = undefined;
             c.vkGetPhysicalDeviceProperties(p, &prop);
+            const cpu = prop.deviceType == c.VK_PHYSICAL_DEVICE_TYPE_CPU;
+            if ((preference == .cpu and !cpu) or (preference == .hardware and cpu)) continue;
             var n: u32 = 0;
             c.vkGetPhysicalDeviceQueueFamilyProperties(p, &n, null);
             if (n > 64) continue;
@@ -107,35 +116,84 @@ pub const Buffer = struct {
     handle: c.VkBuffer = null,
     memory: c.VkDeviceMemory = null,
     bytes: []u8 = &.{},
+    size: usize = 0,
+    local_accounting: usize = 0,
+    device_accounting: usize = 0,
+    const Policy = enum { host, resident, device };
     pub fn init(ctx: *Context, size: usize, uniform: bool) !Buffer {
+        return initPolicy(ctx, size, uniform, if (uniform or config.force_host_buffers) .host else .resident);
+    }
+    pub fn initReadback(ctx: *Context, size: usize) !Buffer {
+        return initPolicy(ctx, size, false, .host);
+    }
+    pub fn initDevice(ctx: *Context, size: usize) !Buffer {
+        return initPolicy(ctx, size, false, if (config.force_host_buffers) .host else .device);
+    }
+    fn initPolicy(ctx: *Context, size: usize, uniform: bool, policy: Policy) !Buffer {
         if (size > 512 * 1024 * 1024 or (!uniform and size > ctx.properties.limits.maxStorageBufferRange)) return error.DeviceLimit;
         var self: Buffer = .{};
         errdefer self.deinit(ctx);
         const bi: c.VkBufferCreateInfo = .{ .sType = c.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, .size = @max(size, 16), .usage = (if (uniform) @as(u32, c.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) else @as(u32, c.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)) | c.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT, .sharingMode = c.VK_SHARING_MODE_EXCLUSIVE };
         try check(c.vkCreateBuffer(ctx.device, &bi, null, &self.handle));
+        self.size = @max(size, 16);
         var req: c.VkMemoryRequirements = undefined;
         c.vkGetBufferMemoryRequirements(ctx.device, self.handle, &req);
-        var mt: ?u32 = null;
-        for (0..ctx.memory.memoryTypeCount) |i| {
-            const needed = c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-            if (req.memoryTypeBits & (@as(u32, 1) << @intCast(i)) != 0 and ctx.memory.memoryTypes[i].propertyFlags & needed == needed) {
-                mt = @intCast(i);
-                break;
+        var tried: u32 = 0;
+        var selected_flags: u32 = 0;
+        while (self.memory == null) {
+            var mt: ?u32 = null;
+            var best: u32 = 0;
+            for (0..ctx.memory.memoryTypeCount) |i| {
+                const bit = @as(u32, 1) << @intCast(i);
+                if (req.memoryTypeBits & bit == 0 or tried & bit != 0) continue;
+                const flags = ctx.memory.memoryTypes[i].propertyFlags;
+                const local = flags & c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT != 0;
+                const visible = flags & (c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == (c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                const cpu = ctx.properties.deviceType == c.VK_PHYSICAL_DEVICE_TYPE_CPU;
+                if (policy == .device and !local) continue;
+                if (policy != .device and !visible) continue;
+                // BAR apertures can be only 256 MiB. Reserve at most 64 MiB per
+                // context for small resident data; allocation failure falls back
+                // to host memory instead of exhausting the mapped local heap.
+                if (policy != .device and local and !cpu and (policy == .host or req.size > 32 * 1024 * 1024 or ctx.mapped_local_bytes + req.size > 64 * 1024 * 1024)) continue;
+                const score: u32 = if (policy == .device) (if (!visible) 4 else 3) else if (local and !cpu) 4 else if (flags & c.VK_MEMORY_PROPERTY_HOST_CACHED_BIT != 0) 3 else 2;
+                if (score > best) {
+                    best = score;
+                    mt = @intCast(i);
+                    selected_flags = flags;
+                }
+            }
+            const index = mt orelse return if (policy == .device) error.NoDeviceMemory else error.NoHostMemory;
+            tried |= @as(u32, 1) << @intCast(index);
+            const mi: c.VkMemoryAllocateInfo = .{ .sType = c.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, .allocationSize = req.size, .memoryTypeIndex = index };
+            const result = c.vkAllocateMemory(ctx.device, &mi, null, &self.memory);
+            if (result != c.VK_SUCCESS) {
+                self.memory = null;
+                if (result != c.VK_ERROR_OUT_OF_DEVICE_MEMORY and result != c.VK_ERROR_OUT_OF_HOST_MEMORY) try check(result);
             }
         }
-        const mi: c.VkMemoryAllocateInfo = .{ .sType = c.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, .allocationSize = req.size, .memoryTypeIndex = mt orelse return error.NoHostMemory };
-        try check(c.vkAllocateMemory(ctx.device, &mi, null, &self.memory));
         try check(c.vkBindBufferMemory(ctx.device, self.handle, self.memory, 0));
-        var p: ?*anyopaque = null;
-        try check(c.vkMapMemory(ctx.device, self.memory, 0, c.VK_WHOLE_SIZE, 0, &p));
-        self.bytes = @as([*]u8, @ptrCast(p.?))[0..@max(size, 16)];
-        @memset(self.bytes, 0);
+        if (policy != .device) {
+            var p: ?*anyopaque = null;
+            try check(c.vkMapMemory(ctx.device, self.memory, 0, c.VK_WHOLE_SIZE, 0, &p));
+            self.bytes = @as([*]u8, @ptrCast(p.?))[0..self.size];
+            @memset(self.bytes, 0);
+            if (selected_flags & c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT != 0 and ctx.properties.deviceType != c.VK_PHYSICAL_DEVICE_TYPE_CPU) {
+                self.local_accounting = @intCast(req.size);
+                ctx.mapped_local_bytes += self.local_accounting;
+            }
+        } else {
+            self.device_accounting = @intCast(req.size);
+            ctx.device_storage_bytes += self.device_accounting;
+        }
         return self;
     }
     pub fn deinit(self: *Buffer, ctx: *Context) void {
         if (self.bytes.len > 0) c.vkUnmapMemory(ctx.device, self.memory);
         if (self.handle != null) c.vkDestroyBuffer(ctx.device, self.handle, null);
         if (self.memory != null) c.vkFreeMemory(ctx.device, self.memory, null);
+        ctx.mapped_local_bytes -= self.local_accounting;
+        ctx.device_storage_bytes -= self.device_accounting;
         self.* = .{};
     }
     pub fn write(self: Buffer, data: []const u8) !void {
@@ -190,8 +248,9 @@ pub const Program = struct {
         var info: [18]c.VkDescriptorBufferInfo = undefined;
         var writes: [18]c.VkWriteDescriptorSet = undefined;
         for (views, 0..) |v, i| {
-            const size = if (v.size > 0) v.size else v.buffer.bytes.len - v.offset;
-            if (v.offset + size > v.buffer.bytes.len) return error.DeviceLimit;
+            if (v.offset > v.buffer.size) return error.DeviceLimit;
+            const size = if (v.size > 0) v.size else v.buffer.size - v.offset;
+            if (size == 0 or v.offset + size > v.buffer.size) return error.DeviceLimit;
             info[i] = .{ .buffer = v.buffer.handle, .offset = v.offset, .range = size };
             writes[i] = .{ .sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstSet = self.sets[slot], .dstBinding = @intCast(i), .descriptorCount = 1, .descriptorType = if (i == 0) c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER else c.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .pBufferInfo = &info[i] };
         }

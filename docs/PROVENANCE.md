@@ -60,3 +60,17 @@ fit. Vulkan calls follow the installed Khronos Vulkan headers; Naga's installed
 public API supplies development-only SPIR-V generation. Original shaders remain
 unchanged under shaders/upstream, with generated resource access under
 shaders/generated and the native preview entry points in shaders/preview.wgsl.
+
+The procedural noise and seven brush sampling functions now have independent
+original observations. `reference/brush-goldens.json` records original source,
+shim and fixture hashes. The recording shim extracts the original sample and
+smoothstep function bodies verbatim; the original noise file is compiled
+unchanged and its own checksum test is run. The Zig noise test reproduces all
+58,366 checksum inputs; 12,138 brush observations cover coordinates, hardness
+and seeds. No original observation was regenerated to hide a candidate mismatch.
+
+HDR presets, SH irradiance and GGX prefiltering are informed by pinned render
+`ibl.rs`. The Vulkan memory/resource policies, sparse GPU page layout, tile
+compositor, parallel disjoint-texel painting, cached seam-neighbor masks and
+native ABI are Zig implementation choices. A separate same-source host-storage
+build is retained as an executable memory-placement measurement control.

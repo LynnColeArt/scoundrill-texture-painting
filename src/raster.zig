@@ -40,6 +40,7 @@ pub const Raster = struct {
     layout: c.VkDescriptorSetLayout = null,
     pipeline_layout: c.VkPipelineLayout = null,
     pipeline: c.VkPipeline = null,
+    background_pipeline: c.VkPipeline = null,
     pool: c.VkDescriptorPool = null,
     set: c.VkDescriptorSet = null,
     render_pass: c.VkRenderPass = null,
@@ -81,6 +82,17 @@ pub const Raster = struct {
         const dynamic: c.VkPipelineDynamicStateCreateInfo = .{ .sType = c.VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO, .dynamicStateCount = 2, .pDynamicStates = &dynamic_states };
         const pi: c.VkGraphicsPipelineCreateInfo = .{ .sType = c.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO, .stageCount = 2, .pStages = &stages, .pVertexInputState = &vertex, .pInputAssemblyState = &assembly, .pViewportState = &viewport, .pRasterizationState = &raster, .pMultisampleState = &ms, .pDepthStencilState = &ds, .pColorBlendState = &blend_state, .pDynamicState = &dynamic, .layout = self.pipeline_layout, .renderPass = self.render_pass, .subpass = 0 };
         try check(c.vkCreateGraphicsPipelines(ctx.device, null, 1, &pi, null, &self.pipeline));
+        const bvs = try shader(ctx, @embedFile("spirv/background_vs.spv"));
+        defer c.vkDestroyShaderModule(ctx.device, bvs, null);
+        const bfs = try shader(ctx, @embedFile("spirv/background_fs.spv"));
+        defer c.vkDestroyShaderModule(ctx.device, bfs, null);
+        const background_stages = [_]c.VkPipelineShaderStageCreateInfo{ .{ .sType = c.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = c.VK_SHADER_STAGE_VERTEX_BIT, .module = bvs, .pName = "background_vs" }, .{ .sType = c.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = c.VK_SHADER_STAGE_FRAGMENT_BIT, .module = bfs, .pName = "background_fs" } };
+        const no_depth: c.VkPipelineDepthStencilStateCreateInfo = .{ .sType = c.VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO, .depthTestEnable = c.VK_FALSE, .depthWriteEnable = c.VK_FALSE };
+        var background_info = pi;
+        background_info.pStages = &background_stages;
+        background_info.pDepthStencilState = &no_depth;
+        try check(c.vkCreateGraphicsPipelines(ctx.device, null, 1, &background_info, null, &self.background_pipeline));
+
         const sizes = [_]c.VkDescriptorPoolSize{ .{ .type = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 2 }, .{ .type = c.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 11 } };
         const pool: c.VkDescriptorPoolCreateInfo = .{ .sType = c.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, .maxSets = 1, .poolSizeCount = 2, .pPoolSizes = &sizes };
         try check(c.vkCreateDescriptorPool(ctx.device, &pool, null, &self.pool));
@@ -94,6 +106,7 @@ pub const Raster = struct {
         self.depth.deinit(ctx);
         if (self.pool != null) c.vkDestroyDescriptorPool(ctx.device, self.pool, null);
         if (self.pipeline != null) c.vkDestroyPipeline(ctx.device, self.pipeline, null);
+        if (self.background_pipeline != null) c.vkDestroyPipeline(ctx.device, self.background_pipeline, null);
         if (self.render_pass != null) c.vkDestroyRenderPass(ctx.device, self.render_pass, null);
         if (self.pipeline_layout != null) c.vkDestroyPipelineLayout(ctx.device, self.pipeline_layout, null);
         if (self.layout != null) c.vkDestroyDescriptorSetLayout(ctx.device, self.layout, null);
@@ -123,7 +136,7 @@ pub const Raster = struct {
         var writes: [13]c.VkWriteDescriptorSet = undefined;
         for (0..13) |i| {
             const b = if (i == 12) settings else &buffers[i];
-            infos[i] = .{ .buffer = b.handle, .offset = 0, .range = b.bytes.len };
+            infos[i] = .{ .buffer = b.handle, .offset = 0, .range = b.size };
             writes[i] = .{ .sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstSet = self.set, .dstBinding = @intCast(i), .descriptorCount = 1, .descriptorType = if (i == 0 or i == 12) c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER else c.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .pBufferInfo = &infos[i] };
         }
         c.vkUpdateDescriptorSets(ctx.device, 13, &writes, 0, null);
@@ -138,6 +151,9 @@ pub const Raster = struct {
         const scissor: c.VkRect2D = .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{ .width = self.width, .height = self.height } };
         c.vkCmdSetViewport(ctx.command, 0, 1, &viewport);
         c.vkCmdSetScissor(ctx.command, 0, 1, &scissor);
+        c.vkCmdBindPipeline(ctx.command, c.VK_PIPELINE_BIND_POINT_GRAPHICS, self.background_pipeline);
+        c.vkCmdDraw(ctx.command, 3, 1, 0, 0);
+        c.vkCmdBindPipeline(ctx.command, c.VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline);
         c.vkCmdDraw(ctx.command, triangle_count * 3, 1, 0, 0);
         c.vkCmdEndRenderPass(ctx.command);
         if (out) |buffer| {

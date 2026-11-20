@@ -13,9 +13,10 @@ Owner direction, November 20, 2026.
 3. A narrow Scoundrill adapter that connects those libraries to the editor.
    Recreating TextureCraft's application shell is outside the initial scope.
 
-The final selected systems are recreated in Zig. GPU kernels remain shader
-programs; retaining WGSL initially is a proposed implementation strategy, not
-retaining a Rust host. The GPU backend and shader strategy are not yet selected.
+Production host logic is Zig. Vulkan runs the recovered WGSL compiled to
+committed SPIR-V; normal builds and applications require no Rust runtime or
+compiler. The same kernels can run on a CPU Vulkan driver. This replaces a
+separate hand-port of the original CPU tracer, a deliberate implementation change.
 
 ## User workflows
 

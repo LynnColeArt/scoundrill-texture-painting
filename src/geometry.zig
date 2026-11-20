@@ -10,10 +10,13 @@ pub const Mesh = struct {
     materials: []const u32 = &.{},
     tangents: []const m.V4 = &.{},
     pub fn validate(self: Mesh) !void {
-        if (self.positions.len == 0 or self.positions.len > 4_000_000 or self.indices.len == 0 or self.indices.len % 3 != 0 or self.indices.len > 12_000_000 or self.normals.len != self.positions.len or self.uvs.len != self.positions.len or (self.materials.len != 0 and self.materials.len != self.indices.len / 3)) return error.InvalidMesh;
+        if ((self.positions.len == 0) != (self.indices.len == 0) or self.positions.len > 4_000_000 or self.indices.len % 3 != 0 or self.indices.len > 12_000_000 or self.normals.len != self.positions.len or self.uvs.len != self.positions.len or (self.materials.len != 0 and self.materials.len != self.indices.len / 3)) return error.InvalidMesh;
         for (self.positions, self.normals, self.uvs) |p, n, uv| if (!m.finite(p) or !m.finite(n) or !std.math.isFinite(uv[0]) or !std.math.isFinite(uv[1])) return error.NonFiniteMesh;
         for (self.positions) |p| for (p) |v| {
             if (@abs(v) > 1e12) return error.MeshRange;
+        };
+        for (self.normals) |n| for (n) |v| {
+            if (@abs(v) > 1e6) return error.MeshRange;
         };
         for (self.uvs) |uv| for (uv) |v| {
             if (@abs(v) > 1e6) return error.MeshRange;
@@ -21,6 +24,7 @@ pub const Mesh = struct {
         if (self.tangents.len != 0 and self.tangents.len != self.positions.len) return error.InvalidMesh;
         for (self.tangents) |t| for (t) |v| {
             if (!std.math.isFinite(v)) return error.NonFiniteMesh;
+            if (@abs(v) > 1e6) return error.MeshRange;
         };
         for (self.indices) |i| if (i >= self.positions.len) return error.InvalidIndex;
     }
@@ -36,6 +40,14 @@ pub fn computeTangents(a: std.mem.Allocator, mesh: Mesh) ![]m.V4 {
     @memset(result, .{ 0, 0, 0, 1 });
     const bitangents = try a.alloc(V3, mesh.positions.len);
     defer a.free(bitangents);
+    try computeTangentsInto(mesh, result, bitangents);
+    return result;
+}
+/// Caller-owned workspace allows deforming actors to update without allocations.
+pub fn computeTangentsInto(mesh: Mesh, result: []m.V4, bitangents: []V3) !void {
+    try mesh.validate();
+    if (result.len != mesh.positions.len or bitangents.len != mesh.positions.len) return error.InvalidWorkspace;
+    @memset(result, .{ 0, 0, 0, 1 });
     @memset(bitangents, .{ 0, 0, 0 });
     for (0..mesh.indices.len / 3) |ti| {
         const ids = mesh.indices[ti * 3 ..][0..3];
@@ -69,7 +81,6 @@ pub fn computeTangents(a: std.mem.Allocator, mesh: Mesh) ![]m.V4 {
         const tangent = m.norm(m.sub(sum, m.scale(n, m.dot(n, sum))));
         t.* = .{ tangent[0], tangent[1], tangent[2], if (m.dot(m.cross(n, tangent), b) < 0) -1 else 1 };
     }
-    return result;
 }
 pub const Bounds = struct {
     lo: V3 = .{ std.math.inf(f32), std.math.inf(f32), std.math.inf(f32) },
@@ -112,6 +123,7 @@ pub const Bvh = struct {
         errdefer a.free(order);
         for (order, 0..) |*o, i| o.* = @intCast(i);
         var self: Bvh = .{ .allocator = a, .nodes = nodes, .order = order };
+        if (count == 0) return self;
         var used: usize = 1;
         const centers = try a.alloc(V3, count);
         defer a.free(centers);
@@ -224,6 +236,7 @@ pub const Bvh = struct {
     }
     pub fn query(self: Bvh, mesh: Mesh, bounds: Bounds, out: *std.ArrayList(u32), a: std.mem.Allocator) !void {
         _ = mesh;
+        if (self.order.len == 0) return;
         var stack: [64]u32 = undefined;
         stack[0] = 0;
         var sp: usize = 1;
@@ -248,7 +261,7 @@ pub const Bvh = struct {
     pub fn refit(self: *Bvh, mesh: Mesh) !void {
         try mesh.validate();
         if (mesh.indices.len / 3 != self.order.len) return error.TopologyChanged;
-        self.refitNode(mesh, 0);
+        if (self.order.len != 0) self.refitNode(mesh, 0);
     }
     fn refitNode(self: *Bvh, mesh: Mesh, i: usize) void {
         var b: Bounds = .{};
@@ -266,6 +279,7 @@ pub const Bvh = struct {
         self.nodes[i].bounds = b;
     }
     pub fn cast(self: Bvh, mesh: Mesh, ray: m.Ray, max_distance: f32) ?Hit {
+        if (self.order.len == 0) return null;
         var stack: [64]u32 = undefined;
         stack[0] = 0;
         var sp: usize = 1;
@@ -314,10 +328,13 @@ pub const UvBuffer = struct {
     width: u32,
     height: u32,
     texels: []Texel,
+    material: ?u32 = null,
+    padding_masks: []u32 = &.{},
     pub fn init(a: std.mem.Allocator, mesh: Mesh, width: u32, height: u32, material: ?u32) !UvBuffer {
         try mesh.validate();
         if (width == 0 or height == 0 or width > 8192 or height > 8192 or @as(u64, width) * height > 16_777_216) return error.ImageBudget;
         const texels = try a.alloc(Texel, @as(usize, width) * height);
+        errdefer a.free(texels);
         @memset(texels, .{});
         const wf: @TypeOf(@as(f32, 0)) = @floatFromInt(width);
         const hf: f32 = @floatFromInt(height);
@@ -345,10 +362,27 @@ pub const UvBuffer = struct {
                 if (u >= -1e-6 and v >= -1e-6 and w >= -1e-6) texels[y * width + x] = .{ .triangle = @intCast(ti), .bary = .{ u, v, w } };
             };
         }
-        return .{ .allocator = a, .width = width, .height = height, .texels = texels };
+        const masks = try a.alloc(u32, texels.len);
+        for (texels, 0..) |texel, i| masks[i] = if (texel.triangle == std.math.maxInt(u32)) 0 else paddingMaskAt(width, height, texels, @intCast(i % width), @intCast(i / width));
+        return .{ .allocator = a, .width = width, .height = height, .texels = texels, .material = material, .padding_masks = masks };
+    }
+    fn paddingMaskAt(width: u32, height: u32, texels: []const Texel, x: u32, y: u32) u32 {
+        var result: u32 = 0;
+        for (0..5) |dy| for (0..5) |dx| {
+            const nx = @as(i64, x) + @as(i64, @intCast(dx)) - 2;
+            const ny = @as(i64, y) + @as(i64, @intCast(dy)) - 2;
+            if (nx < 0 or ny < 0 or nx >= width or ny >= height) continue;
+            if (texels[@as(usize, @intCast(ny)) * width + @as(usize, @intCast(nx))].triangle == std.math.maxInt(u32)) result |= @as(u32, 1) << @intCast(dy * 5 + dx);
+        };
+        return result;
+    }
+    pub fn paddingMask(self: UvBuffer, x: u32, y: u32) u32 {
+        if (self.padding_masks.len == self.texels.len) return self.padding_masks[@as(usize, y) * self.width + x];
+        return paddingMaskAt(self.width, self.height, self.texels, x, y);
     }
     pub fn deinit(self: *UvBuffer) void {
         self.allocator.free(self.texels);
+        self.allocator.free(self.padding_masks);
         self.* = undefined;
     }
     pub fn position(mesh: Mesh, t: Texel) V3 {
