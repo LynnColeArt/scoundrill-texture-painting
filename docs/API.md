@@ -114,7 +114,10 @@ The tracer retains the recovered transport and denoising algorithms with an
 adapted buffer resource layout. Actor/room parity remains an explicit check.
 
 Native PNG export supports RGBA8/RGBA16. Project persistence uses a versioned
-native JSON schema; this is not .tcraft compatibility. Map generation includes
+native JSON schema with a 128 MiB serialized budget. Save preflights that budget
+before allocating JSON output, and rejects nonfinite/invalid documents; it does
+not emit a project that its own loader will reject for size. This is not .tcraft
+compatibility. Map generation includes
 CPU AO, world/tangent normals, position, IDs, height, curvature and thickness,
 plus high-poly normal/height transfer. Map algorithm parity with every upstream
 baker, full layer/effect inventory, instancing, hair and motion blur remain open.

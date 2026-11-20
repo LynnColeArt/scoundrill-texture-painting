@@ -76,6 +76,27 @@ const StoredImage = struct { components: u8, tiles: []const StoredTile };
 const StoredChannel = struct { channel: paint.Channel, image: StoredImage };
 const StoredLayer = struct { name: [64]u8, kind: enum { paint, fill }, visible: bool, opacity: f32, pattern: paint.Pattern, scale: f32, seed: u32, modes: [paint.channel_count]@import("blend.zig").Mode, enabled: u32, values: [paint.channel_count]m.V3, channels: []const StoredChannel, mask: ?StoredImage };
 const Stored = struct { version: u32 = 1, width: u32, height: u32, layers: []const StoredLayer, defaults: ?[paint.channel_count]m.V3 = null };
+pub const max_project_bytes = 128 * 1024 * 1024;
+fn saveBudget(doc: paint.Document) !void {
+    if (doc.width == 0 or doc.height == 0 or doc.width > 8192 or doc.height > 8192 or doc.layers.items.len > 256) return error.InvalidProject;
+    for (doc.defaults) |v| if (!m.finite(v)) return error.InvalidProject;
+    // u16 JSON takes at most six bytes per value. Reserve ample bounded
+    // metadata space before constructing any serialized arrays or output.
+    var estimate: usize = 2 * 1024 * 1024;
+    for (doc.layers.items) |layer| {
+        if (!std.math.isFinite(layer.opacity) or layer.opacity < 0 or layer.opacity > 1 or !std.math.isFinite(layer.scale) or layer.scale <= 0 or layer.scale > 1e6) return error.InvalidProject;
+        for (layer.values) |v| if (!m.finite(v)) return error.InvalidProject;
+        for (layer.pixels, 0..) |slot, i| if (slot) |image| try imageBudget(image, doc.width, doc.height, (@as(paint.Channel, @enumFromInt(i))).components() + 1, &estimate);
+        if (layer.mask) |image| try imageBudget(image, doc.width, doc.height, 1, &estimate);
+    }
+}
+fn imageBudget(image: tex.Image, width: u32, height: u32, components: u8, estimate: *usize) !void {
+    if (image.width != width or image.height != height or image.components != components) return error.InvalidProject;
+    const bytes_per_tile = @as(usize, components) * 4096 * 6 + 64;
+    const count = image.allocated();
+    if (count > (max_project_bytes - estimate.*) / bytes_per_tile) return error.ProjectBudget;
+    estimate.* += count * bytes_per_tile;
+}
 fn storeImage(a: std.mem.Allocator, image: tex.Image) !StoredImage {
     var tiles: std.ArrayList(StoredTile) = .empty;
     for (0..image.tiles_y) |y| for (0..image.tiles_x) |x| {
@@ -84,6 +105,7 @@ fn storeImage(a: std.mem.Allocator, image: tex.Image) !StoredImage {
     return .{ .components = image.components, .tiles = tiles.items };
 }
 pub fn save(a: std.mem.Allocator, doc: paint.Document) ![]u8 {
+    try saveBudget(doc);
     var arena = std.heap.ArenaAllocator.init(a);
     defer arena.deinit();
     const scratch = arena.allocator();
@@ -95,7 +117,12 @@ pub fn save(a: std.mem.Allocator, doc: paint.Document) ![]u8 {
         };
         try layers.append(scratch, .{ .name = layer.name, .kind = if (layer.kind == .fill) .fill else .paint, .visible = layer.visible, .opacity = layer.opacity, .pattern = layer.pattern, .scale = layer.scale, .seed = layer.seed, .modes = layer.modes, .enabled = layer.enabled, .values = layer.values, .channels = channels.items, .mask = if (layer.mask) |image| try storeImage(scratch, image) else null });
     }
-    return std.json.Stringify.valueAlloc(a, Stored{ .width = doc.width, .height = doc.height, .layers = layers.items, .defaults = doc.defaults }, .{});
+    const bytes = try std.json.Stringify.valueAlloc(a, Stored{ .width = doc.width, .height = doc.height, .layers = layers.items, .defaults = doc.defaults }, .{});
+    if (bytes.len > max_project_bytes) {
+        a.free(bytes);
+        return error.ProjectBudget;
+    }
+    return bytes;
 }
 fn restoreImage(a: std.mem.Allocator, w: u32, h: u32, src: StoredImage, expected: u8) !tex.Image {
     if (src.components != expected or src.tiles.len > @as(usize, (w + 63) / 64) * ((h + 63) / 64)) return error.InvalidProject;
@@ -109,7 +136,7 @@ fn restoreImage(a: std.mem.Allocator, w: u32, h: u32, src: StoredImage, expected
     return image;
 }
 pub fn load(a: std.mem.Allocator, data: []const u8) !paint.Document {
-    if (data.len > 128 * 1024 * 1024) return error.ProjectBudget;
+    if (data.len > max_project_bytes) return error.ProjectBudget;
     const parsed = try std.json.parseFromSlice(Stored, a, data, .{});
     defer parsed.deinit();
     const src = parsed.value;
@@ -160,4 +187,26 @@ test "PNG encodes native dimensions and 16 bits" {
     defer std.testing.allocator.free(data);
     try std.testing.expectEqual(@as(u8, 16), data[24]);
     try std.testing.expectEqualStrings("IHDR", data[12..16]);
+}
+test "oversized shared projects fail before serialization allocation" {
+    var session = try paint.Session.init(std.testing.allocator, 64, 64);
+    defer session.deinit();
+    var image = try tex.Image.init(std.testing.allocator, 64, 64, 4);
+    defer image.deinit();
+    _ = try image.tileMut(0, 0, .{ 65535, 65535, 65535, 65535 });
+    for (0..256) |_| {
+        const index = try session.addLayer("shared", .paint);
+        for ([_]paint.Channel{ .base_color, .normal, .specular, .emissive, .sheen_color, .coat_normal }) |channel| {
+            session.document.layers.items[index].pixels[@intFromEnum(channel)] = image.clone();
+        }
+    }
+    var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 0 });
+    try std.testing.expectError(error.ProjectBudget, save(failing.allocator(), session.document));
+    try std.testing.expectEqual(@as(usize, 0), failing.alloc_index);
+}
+test "save rejects nonfinite documents instead of writing unloadable null values" {
+    var document = try paint.Document.init(std.testing.allocator, 1, 1);
+    defer document.deinit();
+    document.defaults[0][0] = std.math.nan(f32);
+    try std.testing.expectError(error.InvalidProject, save(std.testing.allocator, document));
 }
