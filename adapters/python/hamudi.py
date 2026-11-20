@@ -95,8 +95,8 @@ class Library:
         return result
 
 def _buffer(typecode, values):
-    data=array.array(typecode, values)
-    return data, (C.c_char * len(data.tobytes())).from_buffer(data)
+    data=values if isinstance(values,array.array) and values.typecode==typecode else array.array(typecode, values)
+    return data, (C.c_char * (len(data)*data.itemsize)).from_buffer(data)
 
 class Resource:
     def close(self):
@@ -127,8 +127,11 @@ class Scene(Resource):
         return hit if self.library.call('pick',self.handle,C.byref(camera),u,v,aspect,C.byref(hit))==0 else None
     def deform(self,positions,normals):
         if len(positions)!=len(normals):raise ValueError('Mismatched deformation arrays')
-        pd,pb=_buffer('f',(v for p in positions for v in p));nd,nb=_buffer('f',(v for n in normals for v in n))
-        self.library.call('scene_deform',self.handle,pb,nb,len(positions))
+        self.deform_buffers(array.array('f',(v for p in positions for v in p)),array.array('f',(v for n in normals for v in n)))
+    def deform_buffers(self,positions,normals):
+        pd,pb=_buffer('f',positions);nd,nb=_buffer('f',normals)
+        if len(pd)!=len(nd) or len(pd)%3:raise ValueError('Mismatched deformation arrays')
+        self.library.call('scene_deform',self.handle,pb,nb,len(pd)//3)
     def bake(self,kind,width=256,height=256,material=0,samples=32,distance=1.,cancel=None):
         if not 0<width<=8192 or not 0<height<=8192 or width*height>16777216:raise ValueError('BakeBudget')
         output=(C.c_uint16*(width*height*4))();options=BakeOptions(samples,distance,1e-5,C.cast(C.byref(cancel.flag),P) if cancel else None)
@@ -254,6 +257,10 @@ class PreparedViewport:
     def deform(self,positions,normals):
         if self.active:raise RuntimeError('Finish the brush gesture before changing pose')
         self.scene.deform(positions,normals)
+        self.library.call('set_scene',self.renderer.handle,self.scene.handle)
+    def deform_buffers(self,positions,normals):
+        if self.active:raise RuntimeError('Finish the brush gesture before changing pose')
+        self.scene.deform_buffers(positions,normals)
         self.library.call('set_scene',self.renderer.handle,self.scene.handle)
     def paint(self,u,v,color=(.8,.05,.03),brush=None,channel=0):
         if not self.begin_paint(u,v,color,brush,channel): return False
