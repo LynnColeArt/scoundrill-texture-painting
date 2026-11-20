@@ -48,5 +48,6 @@ the material update in hamudi-1, undo/redo it, and export the changed texture.
 
 hamudi-1 becoming the default is an explicit objective. Cutover requires working
 Zig rendering and painting, the existing actor/room regressions, Scoundrill
-acceptance, and measured interactive performance. Until then the current
-renderer configuration remains the integration baseline.
+acceptance, and measured interactive performance. The modern factory now selects the pinned Hamudi-1 reference profile. Fixed
+BRender remains the compatibility engine; application UI adoption uses the
+modern factory rather than changing compatibility entry points.

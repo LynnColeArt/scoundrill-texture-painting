@@ -1,0 +1,23 @@
+{
+  "commit": "b24e5625eaa69a95147c9afa17e0edfc6984bf97",
+  "image_io_sha256": "452e3c895fc1ca4ae993d5e8c877213f684910dc533a3a00a47be56c739cc128",
+  "format": "HAMUDI02",
+  "large": {
+    "width": 4096,
+    "height": 4096,
+    "project_bytes": 201691819,
+    "import_and_save_seconds": 1.623282550019212,
+    "load_seconds": 0.5670579710276797,
+    "full_albedo_opacity_exact": true
+  },
+  "load_restores_material_defaults_exact": true,
+  "constant_material_detailing": {
+    "paint_resolution": 256,
+    "changed_bytes": 736,
+    "undo_exact": true
+  },
+  "empty_gesture_preserves_revision": true,
+  "failed_preview_releases_gesture": true,
+  "crc_and_truncation": "covered by native unit tests",
+  "legacy_JSON": "covered by native unit tests"
+}

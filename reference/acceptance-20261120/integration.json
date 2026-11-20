@@ -1,0 +1,8 @@
+{
+  "library_commit": "b24e5625eaa69a95147c9afa17e0edfc6984bf97",
+  "host_files": {
+    "modern/hamudi-pin.json": "c87012c8a2cef006f4d236ba599d0443543446cf39e5a5c5615a8bbaf3bc2704",
+    "modern/hamudi-reference/checks.json": "264c2fdd7748710440b7798b7544b6a77ebbd1bd07aa81ceb7f92591c1081e83",
+    "modern/hamudi-reference/legacy-acceptance.json": "e8c24ceb875f491a62fc71f4e5caa3fbbdfd2aea8d7985bb5358f50ef38dc728"
+  }
+}

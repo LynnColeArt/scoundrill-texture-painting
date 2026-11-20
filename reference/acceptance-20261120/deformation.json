@@ -1,0 +1,38 @@
+{
+  "geometry_vertices": 73295,
+  "frames": 20,
+  "viewport": [
+    640,
+    360
+  ],
+  "profile": "fast",
+  "includes": "native source pose copy, BVH refit, tangent/serialization, GPU upload, raster and readback; caller supplies contiguous arrays",
+  "frame_ms": [
+    8.556318003684282,
+    7.547187036834657,
+    7.453787955455482,
+    7.6166760409250855,
+    7.474226993508637,
+    7.738485932350159,
+    7.416088017635047,
+    7.515206933021545,
+    7.5700669549405575,
+    7.537537021562457,
+    7.436808082275093,
+    7.423177943564951,
+    7.419318077154458,
+    7.851533940993249,
+    7.732165977358818,
+    7.670945022255182,
+    7.63597700279206,
+    9.605339029803872,
+    10.051126009784639,
+    7.81546498183161
+  ],
+  "mean_ms": 7.853371847886592,
+  "p95_ms": 9.62762837880291,
+  "restored_exact": true,
+  "borrowed_contiguous_arrays": true,
+  "renderer_commit": "f5620835bff56f92406277b8588199a863926bba",
+  "binding_commit": "a51f30dc965d02214924dc848bc714c3bca93455"
+}

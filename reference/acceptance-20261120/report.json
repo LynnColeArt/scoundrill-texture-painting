@@ -1,0 +1,643 @@
+{
+  "schema_version": 1,
+  "zig": "0.16.0",
+  "source_sha256": "1c466fe51d3bfb7e3ddf8ea6e1f793c9883da3d74f5daf9ba32339efe33dc86d",
+  "commit": "f5620835bff56f92406277b8588199a863926bba",
+  "checks": {
+    "core-Debug": {
+      "seconds": 1.423864784068428,
+      "stdout": "",
+      "stderr": ""
+    },
+    "core-ReleaseSafe": {
+      "seconds": 18.50044275599066,
+      "stdout": "",
+      "stderr": ""
+    },
+    "renderer-numerical": {
+      "seconds": 0.5005079819820821,
+      "stdout": "",
+      "stderr": ""
+    },
+    "c-consumer": {
+      "seconds": 0.07535395002923906,
+      "stdout": "",
+      "stderr": ""
+    },
+    "build": {
+      "seconds": 0.05612247600220144,
+      "stdout": "",
+      "stderr": ""
+    },
+    "gpu-Debug": {
+      "seconds": 1.1205789919476956,
+      "stdout": "",
+      "stderr": ""
+    },
+    "gpu-ReleaseSafe": {
+      "seconds": 0.5482648859033361,
+      "stdout": "",
+      "stderr": ""
+    },
+    "workflows": {
+      "seconds": 0.3153228850569576,
+      "stdout": "",
+      "stderr": ""
+    }
+  },
+  "timing_scope": "Shared development machine; this runner submits its GPU workloads sequentially. No cross-renderer speedup is inferred.",
+  "original_reference_hashes_unchanged": true,
+  "consumer": {
+    "live_preview": true,
+    "cancel_exact": true,
+    "grouped_undo_exact": true,
+    "redo_exact": true,
+    "stale_revision_rejected": true,
+    "native_project_roundtrip": true,
+    "garment_metallic_paint": true,
+    "uv_split_deformation": true,
+    "invalid_pose_atomic": true,
+    "progressive_cancel_between_batches": true,
+    "project_bytes": 57100933,
+    "warm_brush_to_readback_ms": [
+      88.68491905741394,
+      50.47706805635244,
+      47.405673074536026,
+      66.9798880117014,
+      52.15260200202465,
+      54.17888192459941,
+      56.117872009053826,
+      48.634456004947424,
+      53.40661306399852,
+      51.45465303212404
+    ],
+    "warm_begin_to_readback_ms": [
+      27.258577989414334,
+      29.603513074107468,
+      28.810205054469407,
+      23.71098194271326,
+      26.65279700886458,
+      27.56228402722627,
+      23.153990972787142,
+      24.00531806051731,
+      27.110952069051564,
+      25.448165950365365
+    ],
+    "warm_drag_to_readback_ms": [
+      34.73361593205482,
+      36.7162759648636,
+      30.984692042693496,
+      30.79519502352923,
+      29.637133004143834,
+      31.05572098866105,
+      27.958348975516856,
+      32.18060499057174,
+      28.219833970069885,
+      28.604538063518703
+    ],
+    "warm_reference_one_sample_begin_ms": [
+      31.636762083508074,
+      27.593494043685496,
+      26.670627994462848,
+      51.238487008959055,
+      39.48741406202316,
+      37.55391307640821,
+      36.0528469318524,
+      32.467321027070284,
+      26.988591998815536,
+      23.468766012229025
+    ]
+  },
+  "light_sweep": {
+    "return_exact": true,
+    "changed_bytes": [
+      65452,
+      85616,
+      95894,
+      102296,
+      89097,
+      87921,
+      90489,
+      88857
+    ]
+  },
+  "reference": {
+    "controls": {
+      "open_floor": 5.055888888888889,
+      "closed_floor": 0.0,
+      "lamp_on_off_actor": 18.819104938271604,
+      "lamp_position_actor": 15.277746913580247
+    },
+    "differences": {
+      "studio": {
+        "mean": 0.06860315393518518,
+        "maximum": 14,
+        "fraction_above_3": 8.7890625e-05,
+        "original_sha256": "41eb0bdfd93a0b812ae4aefe275ff73e47b5e2dba37a7f62904767e6e0241af4",
+        "input_sha256": "d8dcbb9137b7cedce5afbb7406d3572074a4ab6a33b3ee5ffc53410e02d747df"
+      },
+      "window-open": {
+        "mean": 0.03134548611111111,
+        "maximum": 9,
+        "fraction_above_3": 2.785011574074074e-05,
+        "original_sha256": "e1c29de38075cadba708f958027cb7b335350e95e2ebb5482c8ee7789e074e75",
+        "input_sha256": "e0dccf67a9cae07f17754bcbf34cacf34cb79ff330c2ae8c847b2dad1413aa20"
+      },
+      "window-closed": {
+        "mean": 4.340277777777778e-06,
+        "maximum": 1,
+        "fraction_above_3": 0.0,
+        "original_sha256": "03a6d28be71575c53411803c9f50ad5434b93551e7d64beb6b8ea8447acacb28",
+        "input_sha256": "6efdd42b5311e9ee3146fe9d3c1a138a5143c9bb116963af58f024c305a9c6f4"
+      },
+      "lamp-left": {
+        "mean": 0.058334418402777775,
+        "maximum": 34,
+        "fraction_above_3": 0.0005638744212962963,
+        "original_sha256": "6016b9bc9573b0d775f65394fefd535703767b199a4303f24805485be878c2fc",
+        "input_sha256": "e4abf9dc676a3a9426906d865ccd39012b1403df58736f9a4c867341b681886a"
+      },
+      "lamp-left-off": {
+        "mean": 0.0,
+        "maximum": 0,
+        "fraction_above_3": 0.0,
+        "original_sha256": "cc731250fbf03186ee4947d1aff33b4d36807e5c1a9091b495f68786bd0400b1",
+        "input_sha256": "4d54bd5c9bfd012c70d077a79533849533d894cc697a9b7a9382e7ef2086e821"
+      },
+      "lamp-right": {
+        "mean": 0.06349066840277778,
+        "maximum": 20,
+        "fraction_above_3": 0.0008760127314814815,
+        "original_sha256": "613ec73a5e1eb91419c461b8b4518e1b0c39aeac6b2fb35211da8308dd22ea98",
+        "input_sha256": "cd0344fc95892dc8654dd2d459db15138f710fe155e0eac96cb440bcaf5821cd"
+      }
+    },
+    "renders": {
+      "studio": {
+        "adapter": "NVIDIA GeForce RTX 4070",
+        "width": 1280,
+        "height": 720,
+        "samples": 128,
+        "seconds": 0.832848887,
+        "stats": {
+          "geometry_uploads": 1,
+          "material_uploads": 1,
+          "uploaded_bytes": 19316800,
+          "dispatches": 16,
+          "accumulation_resets": 6,
+          "scene_buffer_allocations": 7
+        },
+        "warm_frame_ms_without_readback": [],
+        "memory": {
+          "host_only": false,
+          "mapped_local_bytes": 19316800,
+          "device_storage_bytes": 88473600
+        },
+        "process_seconds": 1.0078137019881979
+      },
+      "window-open": {
+        "adapter": "NVIDIA GeForce RTX 4070",
+        "width": 1280,
+        "height": 720,
+        "samples": 256,
+        "seconds": 2.069593656,
+        "stats": {
+          "geometry_uploads": 1,
+          "material_uploads": 1,
+          "uploaded_bytes": 15522324,
+          "dispatches": 32,
+          "accumulation_resets": 6,
+          "scene_buffer_allocations": 7
+        },
+        "warm_frame_ms_without_readback": [],
+        "memory": {
+          "host_only": false,
+          "mapped_local_bytes": 15522336,
+          "device_storage_bytes": 88473600
+        },
+        "process_seconds": 2.2346392069011927
+      },
+      "window-closed": {
+        "adapter": "NVIDIA GeForce RTX 4070",
+        "width": 1280,
+        "height": 720,
+        "samples": 256,
+        "seconds": 2.267346047,
+        "stats": {
+          "geometry_uploads": 1,
+          "material_uploads": 1,
+          "uploaded_bytes": 15522644,
+          "dispatches": 32,
+          "accumulation_resets": 6,
+          "scene_buffer_allocations": 7
+        },
+        "warm_frame_ms_without_readback": [],
+        "memory": {
+          "host_only": false,
+          "mapped_local_bytes": 15522656,
+          "device_storage_bytes": 88473600
+        },
+        "process_seconds": 2.4258921809960157
+      },
+      "lamp-left": {
+        "adapter": "NVIDIA GeForce RTX 4070",
+        "width": 1280,
+        "height": 720,
+        "samples": 512,
+        "seconds": 4.126408068,
+        "stats": {
+          "geometry_uploads": 1,
+          "material_uploads": 1,
+          "uploaded_bytes": 15523004,
+          "dispatches": 64,
+          "accumulation_resets": 6,
+          "scene_buffer_allocations": 7
+        },
+        "warm_frame_ms_without_readback": [],
+        "memory": {
+          "host_only": false,
+          "mapped_local_bytes": 15523008,
+          "device_storage_bytes": 88473600
+        },
+        "process_seconds": 4.2880326031008735
+      },
+      "lamp-left-off": {
+        "adapter": "NVIDIA GeForce RTX 4070",
+        "width": 1280,
+        "height": 720,
+        "samples": 512,
+        "seconds": 4.191518047,
+        "stats": {
+          "geometry_uploads": 1,
+          "material_uploads": 1,
+          "uploaded_bytes": 15523004,
+          "dispatches": 64,
+          "accumulation_resets": 6,
+          "scene_buffer_allocations": 7
+        },
+        "warm_frame_ms_without_readback": [],
+        "memory": {
+          "host_only": false,
+          "mapped_local_bytes": 15523008,
+          "device_storage_bytes": 88473600
+        },
+        "process_seconds": 4.346235338947736
+      },
+      "lamp-right": {
+        "adapter": "NVIDIA GeForce RTX 4070",
+        "width": 1280,
+        "height": 720,
+        "samples": 512,
+        "seconds": 4.040863375,
+        "stats": {
+          "geometry_uploads": 1,
+          "material_uploads": 1,
+          "uploaded_bytes": 15522940,
+          "dispatches": 64,
+          "accumulation_resets": 6,
+          "scene_buffer_allocations": 7
+        },
+        "warm_frame_ms_without_readback": [],
+        "memory": {
+          "host_only": false,
+          "mapped_local_bytes": 15522944,
+          "device_storage_bytes": 88473600
+        },
+        "process_seconds": 4.192169347079471
+      },
+      "raster-1280": {
+        "adapter": "NVIDIA GeForce RTX 4070",
+        "width": 1280,
+        "height": 720,
+        "samples": 60,
+        "seconds": 0.38029605,
+        "stats": {
+          "geometry_uploads": 1,
+          "material_uploads": 1,
+          "uploaded_bytes": 15522324,
+          "dispatches": 0,
+          "accumulation_resets": 66,
+          "scene_buffer_allocations": 7
+        },
+        "warm_frame_ms_without_readback": [
+          0.65869,
+          0.65309,
+          0.652271,
+          0.65264,
+          0.875507,
+          0.855648,
+          0.827498,
+          0.829167,
+          0.674101,
+          0.682399,
+          0.68664,
+          0.669581,
+          0.701289,
+          0.67599,
+          0.658151,
+          0.917486,
+          0.68598,
+          0.808638,
+          0.67994,
+          0.66428,
+          0.66891,
+          0.69094,
+          0.660631,
+          0.67404,
+          0.877497,
+          0.64879,
+          0.630221,
+          0.725709,
+          0.802818,
+          0.768809,
+          0.64778,
+          0.654771,
+          0.799408,
+          0.900007,
+          0.756868,
+          0.656701,
+          0.65167,
+          0.655051,
+          0.67581,
+          0.67134,
+          0.66527,
+          0.65454,
+          0.67087,
+          0.748609,
+          0.661911,
+          0.64195,
+          0.634761,
+          0.65386,
+          0.649361,
+          0.63877,
+          0.632731,
+          0.71033,
+          0.67782,
+          0.68007,
+          0.715269,
+          0.66729,
+          0.67343,
+          0.656031,
+          0.6767,
+          0.67964
+        ],
+        "memory": {
+          "host_only": false,
+          "mapped_local_bytes": 15522336,
+          "device_storage_bytes": 96
+        },
+        "distribution_ms": {
+          "mean": 0.7019328333333333,
+          "p50": 0.673735,
+          "p95": 0.8756065000000001,
+          "p99": 0.90717339
+        }
+      },
+      "raster-1920": {
+        "adapter": "NVIDIA GeForce RTX 4070",
+        "width": 1920,
+        "height": 1080,
+        "samples": 60,
+        "seconds": 0.427770227,
+        "stats": {
+          "geometry_uploads": 1,
+          "material_uploads": 1,
+          "uploaded_bytes": 15522324,
+          "dispatches": 0,
+          "accumulation_resets": 66,
+          "scene_buffer_allocations": 7
+        },
+        "warm_frame_ms_without_readback": [
+          1.37054,
+          1.32796,
+          1.331321,
+          1.558747,
+          1.3487,
+          1.31345,
+          1.288722,
+          1.661005,
+          1.635846,
+          1.300421,
+          3.221783,
+          1.492058,
+          1.680665,
+          1.391839,
+          1.287291,
+          1.570037,
+          1.331781,
+          1.401399,
+          1.307791,
+          1.291101,
+          1.308801,
+          1.412049,
+          1.33219,
+          1.322801,
+          1.32412,
+          1.316861,
+          1.506488,
+          1.32645,
+          1.320121,
+          1.3336,
+          1.293741,
+          1.315581,
+          1.34863,
+          1.465708,
+          1.435249,
+          1.342531,
+          1.533517,
+          1.611966,
+          1.38295,
+          1.32558,
+          1.293811,
+          1.459909,
+          1.317141,
+          1.30792,
+          1.298011,
+          1.292181,
+          1.37958,
+          1.310741,
+          1.31427,
+          1.424009,
+          1.487258,
+          1.275752,
+          1.32146,
+          1.335191,
+          1.32545,
+          1.313531,
+          1.307171,
+          1.29988,
+          1.659906,
+          1.35494
+        ],
+        "memory": {
+          "host_only": false,
+          "mapped_local_bytes": 15522336,
+          "device_storage_bytes": 96
+        },
+        "distribution_ms": {
+          "mean": 1.4124917166666668,
+          "p50": 1.3315510000000002,
+          "p95": 1.65996095,
+          "p99": 2.3125233799999947
+        }
+      },
+      "raster-3840": {
+        "adapter": "NVIDIA GeForce RTX 4070",
+        "width": 3840,
+        "height": 2160,
+        "samples": 60,
+        "seconds": 0.737963488,
+        "stats": {
+          "geometry_uploads": 1,
+          "material_uploads": 1,
+          "uploaded_bytes": 15522324,
+          "dispatches": 0,
+          "accumulation_resets": 66,
+          "scene_buffer_allocations": 7
+        },
+        "warm_frame_ms_without_readback": [
+          5.263113,
+          5.269102,
+          5.42124,
+          5.224434,
+          5.361451,
+          5.629227,
+          5.323272,
+          5.205903,
+          5.388091,
+          5.265052,
+          5.294672,
+          5.594328,
+          5.42363,
+          5.121145,
+          5.194824,
+          5.649026,
+          5.250243,
+          5.676977,
+          5.374771,
+          5.480859,
+          5.490299,
+          5.538699,
+          5.275083,
+          5.642927,
+          5.364711,
+          5.060525,
+          5.178694,
+          5.391151,
+          5.091035,
+          5.532668,
+          5.362851,
+          5.259363,
+          5.194314,
+          5.328381,
+          5.180444,
+          5.326262,
+          5.535769,
+          5.181784,
+          4.899327,
+          4.961087,
+          5.158425,
+          4.953147,
+          5.342642,
+          5.041135,
+          4.831019,
+          4.911669,
+          5.061495,
+          4.907258,
+          5.016556,
+          5.301462,
+          5.039906,
+          4.835149,
+          4.910828,
+          5.368061,
+          5.215914,
+          5.133324,
+          5.071356,
+          4.927557,
+          4.817729,
+          5.094326
+        ],
+        "memory": {
+          "host_only": false,
+          "mapped_local_bytes": 15522336,
+          "device_storage_bytes": 96
+        },
+        "distribution_ms": {
+          "mean": 5.235761533333333,
+          "p50": 5.254803,
+          "p95": 5.629912,
+          "p99": 5.66048591
+        }
+      },
+      "traced-4k": {
+        "adapter": "NVIDIA GeForce RTX 4070",
+        "width": 3840,
+        "height": 2160,
+        "samples": 512,
+        "seconds": 33.137075167,
+        "stats": {
+          "geometry_uploads": 1,
+          "material_uploads": 1,
+          "uploaded_bytes": 15522940,
+          "dispatches": 64,
+          "accumulation_resets": 6,
+          "scene_buffer_allocations": 7
+        },
+        "warm_frame_ms_without_readback": [],
+        "memory": {
+          "host_only": false,
+          "mapped_local_bytes": 15522944,
+          "device_storage_bytes": 796262400
+        },
+        "process_seconds": 33.31372972403187,
+        "peak_process_rss_kib": 275864
+      },
+      "host-storage-4k": {
+        "adapter": "NVIDIA GeForce RTX 4070",
+        "width": 3840,
+        "height": 2160,
+        "samples": 512,
+        "seconds": 34.043720927,
+        "stats": {
+          "geometry_uploads": 1,
+          "material_uploads": 1,
+          "uploaded_bytes": 15522940,
+          "dispatches": 64,
+          "accumulation_resets": 6,
+          "scene_buffer_allocations": 7
+        },
+        "warm_frame_ms_without_readback": [],
+        "memory": {
+          "host_only": true,
+          "mapped_local_bytes": 0,
+          "device_storage_bytes": 0
+        },
+        "process_seconds": 34.263115850044414,
+        "peak_process_rss_kib": 1068628,
+        "device_local_pixels_exact": true
+      }
+    },
+    "cpu_smoke": {
+      "adapter": "llvmpipe (LLVM 20.1.2, 256 bits)",
+      "width": 32,
+      "height": 18,
+      "samples": 1,
+      "seconds": 0.387997034,
+      "stats": {
+        "geometry_uploads": 1,
+        "material_uploads": 1,
+        "uploaded_bytes": 15531968,
+        "dispatches": 1,
+        "accumulation_resets": 6,
+        "scene_buffer_allocations": 7
+      },
+      "warm_frame_ms_without_readback": [],
+      "memory": {
+        "host_only": false,
+        "mapped_local_bytes": 0,
+        "device_storage_bytes": 55296
+      }
+    }
+  },
+  "hardware": "NVIDIA GeForce RTX 4070, 580.196.07, 12282 MiB"
+}

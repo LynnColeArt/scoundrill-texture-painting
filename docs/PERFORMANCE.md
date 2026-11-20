@@ -59,3 +59,19 @@ visibility and undo. Exact deterministic CPU cases use exact comparison.
 Cross-device GPU and stochastic results need declared tolerances and quality
 metrics before acceptance; a screenshot looking similar is insufficient.
 Known corrections get separate expected behavior and evidence.
+
+## Recorded implementation measurements
+
+The [0.1 delivery record](DELIVERY.md) and
+[raw full run](../reference/acceptance-20261120/report.json) now contain the
+measured candidate results. Frame distributions use CPU wall time through the
+submission fence. The native CLI's `seconds` starts after CPU scene/texture/BVH
+preparation and includes renderer setup, rendering, resolve, readback and PPM
+write; `process_seconds` records the whole subprocess separately.
+
+The memory comparison changes only the same-source storage policy and produces
+exact displayed pixels. Its principal established gain is process RSS, rather
+than a large throughput multiplier. Native actor updates accept borrowed
+contiguous arrays, reuse geometry buffers/workspace, and preserve textures.
+Full-run brush p95 results do not yet establish the provisional 33.3 ms target
+across shared-machine conditions. Keep that target open and preserve the data.

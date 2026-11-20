@@ -43,8 +43,8 @@ fixtures and comparison artifacts. The original baseline index is unchanged.
 The earlier experiment's Rust executables are development oracles. They are
 not Zig implementations. The new native executable links Vulkan and libc, with
 all renderer host logic in Zig. Its first actor comparison is a new candidate
-run; original records were not overwritten. No default-renderer replacement or
-general speedup has been established.
+run; original records were not overwritten. The modern Scoundrill factory now selects a pinned Hamudi-1 build; fixed BRender
+compatibility is unchanged. No general cross-renderer speedup is established.
 
 reference/source-inventory.json records 239 selected upstream source files and
 SHA-256 hashes before porting. Source-informed implementations consult core
@@ -74,3 +74,10 @@ HDR presets, SH irradiance and GGX prefiltering are informed by pinned render
 compositor, parallel disjoint-texel painting, cached seam-neighbor masks and
 native ABI are Zig implementation choices. A separate same-source host-storage
 build is retained as an executable memory-placement measurement control.
+
+Candidate release captures are retained separately under
+reference/acceptance-20261120, with hashes and exact run commits. They include
+rendered views of Scoundrill's CC0-derived actor; the fixture provenance and CC0
+dedication are retained alongside them. Native JSON v1 remains readable, and
+compact v2 stores binary tiles with checked metadata, CRC and bounded decoding.
+The dense-4K project check is a new candidate observation, not an upstream golden.

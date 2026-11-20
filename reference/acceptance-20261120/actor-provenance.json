@@ -1,0 +1,34 @@
+{
+  "source_repository": "scoundrill-character-creator",
+  "source_commit": "ca53fdfbd6873c2941c39e6f68939be31ed21fdd",
+  "source_path": "evidence/materials/avatar.vrm",
+  "source": {
+    "sha256": "989c82854b058640b4478d8d63cdd34bcd5a04f7be9a9f0ec42be8b07816e2ff",
+    "bytes": 18078356,
+    "avatar_meta": {
+      "name": "Round cartoon proof",
+      "authors": [
+        "Scoundrill; CC0 MakeHuman source assets"
+      ],
+      "version": "0.1.0-prototype",
+      "licenseUrl": "https://vrm.dev/licenses/1.0/",
+      "otherLicenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "copyrightInformation": "Prototype derived from CC0 MakeHuman assets; source dedications retained.",
+      "allowExcessivelyViolentUsage": true,
+      "allowExcessivelySexualUsage": true,
+      "allowPoliticalOrReligiousUsage": true,
+      "allowAntisocialOrHateUsage": true,
+      "avatarPermission": "everyone",
+      "commercialUsage": "corporation",
+      "creditNotation": "unnecessary",
+      "allowRedistribution": true,
+      "modification": "allowModificationRedistribution",
+      "thirdPartyLicenses": "MakeHuman core assets and facial packs: CC0. Facial assets by Mika Suominen; MakeHuman Team core mesh, rigs and parts."
+    },
+    "skin_joints": [
+      53
+    ],
+    "pose": "exported neutral mesh positions; no skeleton/morph evaluation"
+  },
+  "fixture_sha256": "389d7649ca20deab0b7fbf50f85cf8b08a26fac633ab442075d9dfa8964b35c4"
+}

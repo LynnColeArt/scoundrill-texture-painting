@@ -9,5 +9,8 @@
 Naga 30.0.1 is a development-only shader compiler dependency under MIT OR
 Apache-2.0, resolved in tools/shader-compiler/Cargo.lock. No Rust compiler or
 renderer runtime is linked into the Zig executable. The Vulkan loader and GPU
-driver are external platform dependencies. No upstream brands, icons, fonts or
-other visual assets are bundled here.
+driver are external platform dependencies. No upstream brands, icons or fonts are bundled here. Candidate render evidence
+contains the CC0-derived MakeHuman actor from Scoundrill's frozen fixture; its
+source/derivative provenance is in reference/acceptance-20261120/actor-provenance.json
+and its dedication in licenses/actor/LICENSE.CC0.txt. Room geometry comes from
+Scoundrill's MIT experiment harness; its original records are unchanged.

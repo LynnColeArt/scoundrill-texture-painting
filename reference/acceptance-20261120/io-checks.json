@@ -1,0 +1,26 @@
+{
+  "commit": "44ddbbfb71914f71aa0f0cd02db44d40c4704c84",
+  "zig": "0.16.0",
+  "checks": {
+    "core_Debug": "passed",
+    "core_ReleaseSafe": "passed",
+    "C_consumer": "passed",
+    "oversized_project_preflight_without_allocation": "passed",
+    "nonfinite_save_rejected": "passed",
+    "independent_Pillow_RGBA8_decode": {
+      "roughness": [
+        128,
+        128,
+        128,
+        255
+      ],
+      "albedo": [
+        188,
+        188,
+        188,
+        255
+      ]
+    }
+  },
+  "renderer_changes_since_f562083": false
+}
